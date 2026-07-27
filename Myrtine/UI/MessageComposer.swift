@@ -19,10 +19,9 @@ struct MessageComposer: UIViewControllerRepresentable {
     }
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) { }
 
-    final class Coordinator: NSObject, MFMessageComposeViewControllerDelegate {
+    final class Coordinator: NSObject, @MainActor MFMessageComposeViewControllerDelegate {
         let dismiss: DismissAction
         init(dismiss: DismissAction) { self.dismiss = dismiss }
-        @MainActor
         func messageComposeViewController(_ controller: MFMessageComposeViewController, didFinishWith result: MessageComposeResult) { dismiss() }
     }
 }
