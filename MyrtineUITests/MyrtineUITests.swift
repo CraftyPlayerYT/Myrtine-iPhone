@@ -100,7 +100,7 @@ final class MyrtineUITests: XCTestCase {
 
         let expense = app.textFields["diagnostic-expense"]
         var expenseScrolls = 0
-        while !expense.isHittable && expenseScrolls < 5 { app.swipeUp(); expenseScrolls += 1 }
+        while !expense.isHittable && expenseScrolls < 5 { app.scrollViews.firstMatch.swipeUp(); expenseScrolls += 1 }
         XCTAssertTrue(expense.isHittable)
         expense.tap(); expense.typeText("Machines moins énergivores")
         app.buttons["Ajouter la dépense"].tap()
@@ -143,7 +143,7 @@ final class MyrtineUITests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 3), "Champ introuvable : \(identifier)")
         var attempts = 0
         while (!field.isHittable || (app.keyboards.count > 0 && field.frame.maxY > 500)) && attempts < 8 {
-            app.swipeUp()
+            app.scrollViews.firstMatch.swipeUp()
             attempts += 1
         }
         XCTAssertTrue(field.isHittable, "Champ non accessible : \(identifier)")

@@ -137,7 +137,6 @@ struct MailFolderView: View {
     let folder: MailFolderRecord
     @State private var search = ""
     @State private var selected: MailMessageRecord?
-    @State private var showMessage = false
     @State private var showCompose = false
 
     private var messages: [MailMessageRecord] {
@@ -202,12 +201,12 @@ struct MailFolderView: View {
             }
         }
         .fullScreenCover(isPresented: $showCompose) { ComposeMailView() }
-        .fullScreenCover(isPresented: $showMessage, onDismiss: { selected = nil }) {
-            if let selected { ReadMailView(message: selected) }
+        .fullScreenCover(item: $selected) { message in
+            ReadMailView(message: message)
         }
     }
 
-    private func open(_ message: MailMessageRecord) { selected = message; showMessage = true }
+    private func open(_ message: MailMessageRecord) { selected = message }
 }
 
 private struct MessageRow: View {
