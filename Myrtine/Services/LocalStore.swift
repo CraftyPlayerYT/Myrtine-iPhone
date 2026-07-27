@@ -210,30 +210,38 @@ final class LocalStore {
 
     func moveFolderToTrash(_ folder: MailFolderRecord) throws {
         guard folder.kind == "custom" else { throw StoreError.systemFolder }
-        folder.previousName = folder.name
+        let folderName = folder.name
+        let containedMessages = messages(in: folderName, includeDeleted: true)
+
+        folder.previousName = folderName
         folder.isDeleted = true
         folder.updatedAt = .now
-        for message in messages(in: folder.name, includeDeleted: true) {
-            message.previousFolderName = folder.name
+        for message in containedMessages {
+            message.previousFolderName = folderName
             message.folderName = "Corbeille"
             message.isDeleted = true
             message.updatedAt = .now
             message.syncRequired = true
         }
+        try save()
         try enqueue(operation: "upsert_folder", entityID: folder.id)
     }
 
     func restoreFolder(_ folder: MailFolderRecord) throws {
+        let restoredName = folder.previousName.isEmpty ? folder.name : folder.previousName
+        let containedMessages = messages(includeDeleted: true).filter { $0.previousFolderName == restoredName }
+
         folder.isDeleted = false
         folder.updatedAt = .now
-        let restoredName = folder.previousName.isEmpty ? folder.name : folder.previousName
         folder.name = restoredName
-        for message in messages(includeDeleted: true).filter({ $0.previousFolderName == restoredName }) {
+        for message in containedMessages {
             message.folderName = restoredName
+            message.previousFolderName = ""
             message.isDeleted = false
             message.updatedAt = .now
             message.syncRequired = true
         }
+        try save()
         try enqueue(operation: "upsert_folder", entityID: folder.id)
     }
 

@@ -51,6 +51,7 @@ struct DiagnosticsHomeView: View {
                         HStack(spacing: 4) {
                             Button { open(diagnostic) } label: { DiagnosticListRow(diagnostic: diagnostic) }
                                 .buttonStyle(.plain)
+                                .accessibilityIdentifier("diagnostic-open-\(diagnostic.email)")
                             Menu { actions(for: diagnostic) } label: {
                                 Image(systemName: "ellipsis")
                                     .frame(width: 44, height: 44)
@@ -60,7 +61,6 @@ struct DiagnosticsHomeView: View {
                         }
                         .listRowBackground(Color.white)
                         .contextMenu { actions(for: diagnostic) }
-                        .accessibilityIdentifier("diagnostic-row-\(diagnostic.id)")
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)

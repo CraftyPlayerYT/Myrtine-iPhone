@@ -1,5 +1,6 @@
 import XCTest
 
+@MainActor
 final class MyrtineUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -18,7 +19,7 @@ final class MyrtineUITests: XCTestCase {
         app.tabBars.buttons["Diagnostics"].tap()
         capture("02-diagnostics-nouveaux")
 
-        let sampleClient = app.staticTexts["Élodie Martin"]
+        let sampleClient = app.buttons["diagnostic-open-elodie.martin@example.fr"]
         XCTAssertTrue(sampleClient.waitForExistence(timeout: 5))
         sampleClient.tap()
         XCTAssertTrue(app.navigationBars["Diagnostic"].waitForExistence(timeout: 5))
@@ -148,6 +149,13 @@ final class MyrtineUITests: XCTestCase {
         }
         XCTAssertTrue(field.isHittable, "Champ non accessible : \(identifier)")
         field.tap()
+        let focus = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "hasKeyboardFocus == true"),
+            object: field
+        )
+        if XCTWaiter.wait(for: [focus], timeout: 2) != .completed {
+            field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
         field.typeText(value)
         capture(screenshot)
     }
