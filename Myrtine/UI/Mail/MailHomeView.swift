@@ -12,7 +12,7 @@ struct MailHomeView: View {
     @State private var editFolderName = ""
     @State private var errorMessage: String?
 
-    private var folders: [MailFolderRecord] { allFolders.filter { !$0.isDeleted }.sorted { $0.sortOrder < $1.sortOrder } }
+    private var folders: [MailFolderRecord] { allFolders.filter { !$0.isTrashed }.sorted { $0.sortOrder < $1.sortOrder } }
 
     var body: some View {
         NavigationStack {
@@ -86,12 +86,12 @@ struct MailHomeView: View {
     }
 
     private func messageCount(_ folder: MailFolderRecord) -> Int {
-        if folder.kind == "trash" { return allMessages.filter { $0.isDeleted }.count + allFolders.filter { $0.isDeleted }.count }
-        return allMessages.filter { !$0.isDeleted && $0.folderName == folder.name }.count
+        if folder.kind == "trash" { return allMessages.filter { $0.isTrashed }.count + allFolders.filter { $0.isTrashed }.count }
+        return allMessages.filter { !$0.isTrashed && $0.folderName == folder.name }.count
     }
 
     private func unreadCount(_ folder: MailFolderRecord) -> Int {
-        allMessages.filter { !$0.isDeleted && $0.folderName == folder.name && !$0.isRead }.count
+        allMessages.filter { !$0.isTrashed && $0.folderName == folder.name && !$0.isRead }.count
     }
 
     private func createFolder() {
@@ -142,11 +142,11 @@ struct MailFolderView: View {
 
     private var messages: [MailMessageRecord] {
         allMessages.filter { message in
-            let belongs = folder.kind == "trash" ? message.isDeleted : !message.isDeleted && message.folderName == folder.name
+            let belongs = folder.kind == "trash" ? message.isTrashed : !message.isTrashed && message.folderName == folder.name
             return belongs && (search.isEmpty || [message.correspondent, message.subject, message.body].contains { $0.localizedCaseInsensitiveContains(search) })
         }
     }
-    private var deletedFolders: [MailFolderRecord] { folder.kind == "trash" ? allFolders.filter { $0.isDeleted } : [] }
+    private var deletedFolders: [MailFolderRecord] { folder.kind == "trash" ? allFolders.filter { $0.isTrashed } : [] }
 
     var body: some View {
         Group {
@@ -173,7 +173,7 @@ struct MailFolderView: View {
                                 Button { open(message) } label: { MessageRow(message: message) }.buttonStyle(.plain)
                                 Menu {
                                     Button { open(message) } label: { Label("Ouvrir", systemImage: "envelope.open") }
-                                    if message.isDeleted {
+                                    if message.isTrashed {
                                         Button { try? environment.store.restoreMessage(message) } label: { Label("Restaurer", systemImage: "arrow.uturn.backward") }
                                         Button(role: .destructive) { try? environment.store.deletePermanently(message) } label: { Label("Supprimer définitivement", systemImage: "trash.slash") }
                                     } else {
@@ -237,7 +237,7 @@ private struct DeletedFolderView: View {
     @Query(sort: \MailMessageRecord.createdAt, order: .reverse) private var allMessages: [MailMessageRecord]
     let folder: MailFolderRecord
 
-    private var messages: [MailMessageRecord] { allMessages.filter { $0.isDeleted && $0.previousFolderName == folder.name } }
+    private var messages: [MailMessageRecord] { allMessages.filter { $0.isTrashed && $0.previousFolderName == folder.name } }
 
     var body: some View {
         List(messages) { message in MessageRow(message: message) }

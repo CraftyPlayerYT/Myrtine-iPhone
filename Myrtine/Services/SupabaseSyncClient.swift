@@ -149,7 +149,7 @@ private struct RemoteDiagnostic: Codable {
         phone = value.phone
         resultMarkdown = value.resultMarkdown
         lastError = value.lastError
-        isDeleted = value.isDeleted
+        isDeleted = value.isTrashed
         syncRequired = false
         isRead = value.isRead
     }
@@ -196,7 +196,7 @@ private struct RemoteFolder: Codable {
     let updatedAt: Date
 
     init(_ value: MailFolderRecord) {
-        name = value.name; kind = value.isDeleted ? "deleted" : value.kind; sortOrder = value.sortOrder; createdAt = value.createdAt; updatedAt = value.updatedAt
+        name = value.name; kind = value.isTrashed ? "deleted" : value.kind; sortOrder = value.sortOrder; createdAt = value.createdAt; updatedAt = value.updatedAt
     }
     enum CodingKeys: String, CodingKey { case name, kind; case sortOrder = "sort_order", createdAt = "created_at", updatedAt = "updated_at" }
 }

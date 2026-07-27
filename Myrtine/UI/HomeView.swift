@@ -8,7 +8,7 @@ struct HomeView: View {
     @Query private var queriedMessages: [MailMessageRecord]
     @State private var showNewDiagnostic = false
 
-    private var activeDiagnostics: [DiagnosticRecord] { queriedDiagnostics.filter { !$0.isDeleted } }
+    private var activeDiagnostics: [DiagnosticRecord] { queriedDiagnostics.filter { !$0.isTrashed } }
     private var unread: [DiagnosticRecord] { activeDiagnostics.filter { !$0.isRead && !$0.resultMarkdown.isEmpty } }
 
     var body: some View {
@@ -56,7 +56,7 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(environment.network.isOnline ? "Services disponibles" : "Mode hors ligne")
                         .font(.headline)
-                    Text(environment.network.isOnline ? "Synchronisation via \(environment.network.interfaceName)" : "Consultation et saisie locales disponibles")
+                    Text(environment.network.isOnline ? "Connexion \(environment.network.interfaceName) active" : "Consultation et saisie locales disponibles")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
@@ -72,7 +72,7 @@ struct HomeView: View {
             MetricTile(title: "Diagnostics", value: "\(activeDiagnostics.count)", systemImage: "doc.text")
             MetricTile(title: "Non lus", value: "\(unread.count)", systemImage: "sparkles", tint: .orange)
             MetricTile(title: "Clients", value: "\(queriedClients.count)", systemImage: "person.2", tint: MyrtineTheme.leaf)
-            MetricTile(title: "E-mails", value: "\(queriedMessages.filter { !$0.isDeleted }.count)", systemImage: "envelope", tint: MyrtineTheme.blueberry)
+            MetricTile(title: "E-mails", value: "\(queriedMessages.filter { !$0.isTrashed }.count)", systemImage: "envelope", tint: MyrtineTheme.blueberry)
         }
     }
 

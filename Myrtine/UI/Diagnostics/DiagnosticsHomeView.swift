@@ -20,9 +20,9 @@ struct DiagnosticsHomeView: View {
     private var filtered: [DiagnosticRecord] {
         allDiagnostics.filter { diagnostic in
             let inScope = switch scope {
-            case .unread: !diagnostic.isDeleted && !diagnostic.isRead
-            case .read: !diagnostic.isDeleted && diagnostic.isRead
-            case .trash: diagnostic.isDeleted
+            case .unread: !diagnostic.isTrashed && !diagnostic.isRead
+            case .read: !diagnostic.isTrashed && diagnostic.isRead
+            case .trash: diagnostic.isTrashed
             }
             let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
             return inScope && (query.isEmpty || [diagnostic.fullName, diagnostic.email, diagnostic.projectObject, diagnostic.sector, diagnostic.location].contains { $0.localizedCaseInsensitiveContains(query) })
@@ -99,7 +99,7 @@ struct DiagnosticsHomeView: View {
     }
 
     @ViewBuilder private func actions(for diagnostic: DiagnosticRecord) -> some View {
-        if diagnostic.isDeleted {
+        if diagnostic.isTrashed {
             Button { try? environment.store.restoreDiagnostic(diagnostic) } label: { Label("Restaurer", systemImage: "arrow.uturn.backward") }
         } else {
             if !diagnostic.resultMarkdown.isEmpty {
@@ -133,7 +133,7 @@ private struct DiagnosticListRow: View {
                             .font(.body.weight(.bold))
                             .foregroundStyle(MyrtineTheme.accent)
                     }
-                if !diagnostic.isRead && !diagnostic.isDeleted {
+                if !diagnostic.isRead && !diagnostic.isTrashed {
                     Circle().fill(MyrtineTheme.accent).frame(width: 12, height: 12).overlay { Circle().stroke(.white, lineWidth: 2) }
                 }
             }

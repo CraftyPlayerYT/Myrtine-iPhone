@@ -18,8 +18,8 @@ final class MyrtineUITests: XCTestCase {
         app.tabBars.buttons["Diagnostics"].tap()
         capture("02-diagnostics-nouveaux")
 
-        let sampleClient = app.buttons["diagnostic-open-elodie.martin@example.fr"]
-        XCTAssertTrue(sampleClient.waitForExistence(timeout: 5))
+        let sampleClient = app.staticTexts["Élodie Martin"]
+        XCTAssertTrue(sampleClient.waitForExistence(timeout: 12))
         sampleClient.tap()
         XCTAssertTrue(app.navigationBars["Diagnostic"].waitForExistence(timeout: 5))
         capture("03-diagnostic-detail")

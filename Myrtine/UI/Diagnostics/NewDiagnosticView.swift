@@ -8,6 +8,7 @@ struct NewDiagnosticView: View {
     @State private var isSending = false
     @State private var submissionTask: Task<Void, Never>?
     @State private var errorMessage: String?
+    @State private var keyboardVisible = false
 
     var body: some View {
         NavigationStack {
@@ -28,6 +29,7 @@ struct NewDiagnosticView: View {
                 }
                 .padding(16)
             }
+            .scrollDismissesKeyboard(.interactively)
             .myrtineScreen()
             .navigationTitle("Nouveau diagnostic")
             .navigationBarTitleDisplayMode(.inline)
@@ -39,7 +41,15 @@ struct NewDiagnosticView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                actionBar
+                if !keyboardVisible {
+                    actionBar
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                keyboardVisible = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                keyboardVisible = false
             }
             .interactiveDismissDisabled(isSending)
         }

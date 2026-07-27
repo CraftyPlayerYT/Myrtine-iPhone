@@ -15,7 +15,7 @@ final class LocalStore {
     func diagnostics(includeDeleted: Bool = false) -> [DiagnosticRecord] {
         let rows = (try? context.fetch(FetchDescriptor<DiagnosticRecord>())) ?? []
         return rows
-            .filter { includeDeleted || !$0.isDeleted }
+            .filter { includeDeleted || !$0.isTrashed }
             .sorted { $0.updatedAt > $1.updatedAt }
     }
 
@@ -53,7 +53,7 @@ final class LocalStore {
             existing.phone = remote.phone
             existing.resultMarkdown = remote.resultMarkdown
             existing.lastError = remote.lastError
-            existing.isDeleted = remote.isDeleted
+            existing.isTrashed = remote.isDeleted
             existing.isRead = remote.isRead
         } else {
             let incoming = DiagnosticRecord(
@@ -78,7 +78,7 @@ final class LocalStore {
             incoming.deletedAt = remote.deletedAt
             incoming.resultMarkdown = remote.resultMarkdown
             incoming.lastError = remote.lastError
-            incoming.isDeleted = remote.isDeleted
+            incoming.isTrashed = remote.isDeleted
             incoming.isRead = remote.isRead
             context.insert(incoming)
             try upsertClient(from: incoming)
@@ -94,7 +94,7 @@ final class LocalStore {
     }
 
     func moveDiagnosticToTrash(_ diagnostic: DiagnosticRecord) throws {
-        diagnostic.isDeleted = true
+        diagnostic.isTrashed = true
         diagnostic.deletedAt = .now
         diagnostic.state = .deleted
         diagnostic.updatedAt = .now
@@ -103,7 +103,7 @@ final class LocalStore {
     }
 
     func restoreDiagnostic(_ diagnostic: DiagnosticRecord) throws {
-        diagnostic.isDeleted = false
+        diagnostic.isTrashed = false
         diagnostic.deletedAt = nil
         diagnostic.state = diagnostic.resultMarkdown.isEmpty ? .draft : .received
         diagnostic.updatedAt = .now
@@ -146,7 +146,7 @@ final class LocalStore {
 
     func folders(includeDeleted: Bool = false) -> [MailFolderRecord] {
         ((try? context.fetch(FetchDescriptor<MailFolderRecord>())) ?? [])
-            .filter { includeDeleted || !$0.isDeleted }
+            .filter { includeDeleted || !$0.isTrashed }
             .sorted {
                 if $0.sortOrder == $1.sortOrder { return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
                 return $0.sortOrder < $1.sortOrder
@@ -175,7 +175,7 @@ final class LocalStore {
             existing.updatedAt = updatedAt
             existing.systemImage = Self.systemImage(for: kind)
         } else {
-            context.insert(MailFolderRecord(name: name, systemImage: Self.systemImage(for: kind), kind: kind, sortOrder: sortOrder, createdAt: createdAt, updatedAt: updatedAt, isDeleted: kind == "deleted"))
+            context.insert(MailFolderRecord(name: name, systemImage: Self.systemImage(for: kind), kind: kind, sortOrder: sortOrder, createdAt: createdAt, updatedAt: updatedAt, isTrashed: kind == "deleted"))
         }
         try save()
     }
@@ -217,12 +217,12 @@ final class LocalStore {
         let containedMessages = messages(in: folderName, includeDeleted: true)
 
         folder.previousName = folderName
-        folder.isDeleted = true
+        folder.isTrashed = true
         folder.updatedAt = .now
         for message in containedMessages {
             message.previousFolderName = folderName
             message.folderName = "Corbeille"
-            message.isDeleted = true
+            message.isTrashed = true
             message.updatedAt = .now
             message.syncRequired = true
         }
@@ -234,13 +234,13 @@ final class LocalStore {
         let restoredName = folder.previousName.isEmpty ? folder.name : folder.previousName
         let containedMessages = messages(includeDeleted: true).filter { $0.previousFolderName == restoredName }
 
-        folder.isDeleted = false
+        folder.isTrashed = false
         folder.updatedAt = .now
         folder.name = restoredName
         for message in containedMessages {
             message.folderName = restoredName
             message.previousFolderName = ""
-            message.isDeleted = false
+            message.isTrashed = false
             message.updatedAt = .now
             message.syncRequired = true
         }
@@ -251,7 +251,7 @@ final class LocalStore {
     func messages(in folderName: String? = nil, includeDeleted: Bool = false) -> [MailMessageRecord] {
         ((try? context.fetch(FetchDescriptor<MailMessageRecord>())) ?? [])
             .filter { row in
-                (folderName == nil || row.folderName == folderName) && (includeDeleted || !row.isDeleted)
+                (folderName == nil || row.folderName == folderName) && (includeDeleted || !row.isTrashed)
             }
             .sorted { $0.createdAt > $1.createdAt }
     }
@@ -271,7 +271,7 @@ final class LocalStore {
     func moveMessage(_ message: MailMessageRecord, to folderName: String) throws {
         message.previousFolderName = message.folderName
         message.folderName = folderName
-        message.isDeleted = folderName == "Corbeille"
+        message.isTrashed = folderName == "Corbeille"
         message.updatedAt = .now
         message.syncRequired = true
         try enqueue(operation: "upsert_message", entityID: message.id)
@@ -280,7 +280,7 @@ final class LocalStore {
     func restoreMessage(_ message: MailMessageRecord) throws {
         message.folderName = message.previousFolderName.isEmpty ? "Boîte de réception" : message.previousFolderName
         message.previousFolderName = ""
-        message.isDeleted = false
+        message.isTrashed = false
         message.updatedAt = .now
         message.syncRequired = true
         try enqueue(operation: "upsert_message", entityID: message.id)

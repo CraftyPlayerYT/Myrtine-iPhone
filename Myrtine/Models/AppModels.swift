@@ -33,7 +33,7 @@ final class DiagnosticRecord {
     var phone: String
     var resultMarkdown: String
     var lastError: String
-    var isDeleted: Bool
+    var isTrashed: Bool
     var syncRequired: Bool
     var isRead: Bool
     var aiProvider: String
@@ -78,7 +78,7 @@ final class DiagnosticRecord {
         self.phone = phone
         self.resultMarkdown = ""
         self.lastError = ""
-        self.isDeleted = false
+        self.isTrashed = false
         self.syncRequired = false
         self.isRead = false
         self.aiProvider = ""
@@ -145,10 +145,10 @@ final class MailFolderRecord {
     var sortOrder: Int
     var createdAt: Date
     var updatedAt: Date
-    var isDeleted: Bool
+    var isTrashed: Bool
     var previousName: String
 
-    init(id: String = UUID().uuidString.lowercased(), name: String, systemImage: String = "folder", kind: String = "custom", sortOrder: Int = 100, createdAt: Date = .now, updatedAt: Date = .now, isDeleted: Bool = false, previousName: String = "") {
+    init(id: String = UUID().uuidString.lowercased(), name: String, systemImage: String = "folder", kind: String = "custom", sortOrder: Int = 100, createdAt: Date = .now, updatedAt: Date = .now, isTrashed: Bool = false, previousName: String = "") {
         self.id = id
         self.name = name
         self.systemImage = systemImage
@@ -156,7 +156,7 @@ final class MailFolderRecord {
         self.sortOrder = sortOrder
         self.createdAt = createdAt
         self.updatedAt = updatedAt
-        self.isDeleted = isDeleted
+        self.isTrashed = isTrashed
         self.previousName = previousName
     }
 }
@@ -176,10 +176,10 @@ final class MailMessageRecord {
     var htmlBody: String
     var attachmentsData: Data
     var isRead: Bool
-    var isDeleted: Bool
+    var isTrashed: Bool
     var syncRequired: Bool
 
-    init(id: String = UUID().uuidString.lowercased(), folderName: String, previousFolderName: String = "", createdAt: Date = .now, updatedAt: Date = .now, direction: String, sender: String, recipient: String, subject: String, body: String, htmlBody: String = "", attachmentsData: Data = Data(), isRead: Bool = true, isDeleted: Bool = false, syncRequired: Bool = false) {
+    init(id: String = UUID().uuidString.lowercased(), folderName: String, previousFolderName: String = "", createdAt: Date = .now, updatedAt: Date = .now, direction: String, sender: String, recipient: String, subject: String, body: String, htmlBody: String = "", attachmentsData: Data = Data(), isRead: Bool = true, isTrashed: Bool = false, syncRequired: Bool = false) {
         self.id = id
         self.folderName = folderName
         self.previousFolderName = previousFolderName
@@ -193,7 +193,7 @@ final class MailMessageRecord {
         self.htmlBody = htmlBody
         self.attachmentsData = attachmentsData
         self.isRead = isRead
-        self.isDeleted = isDeleted
+        self.isTrashed = isTrashed
         self.syncRequired = syncRequired
     }
 

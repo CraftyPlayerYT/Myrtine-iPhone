@@ -41,16 +41,16 @@ final class OfflineAndSyncTests: XCTestCase {
         XCTAssertEqual(message.folderName, "Entreprise Renommée")
 
         try environment.store.moveFolderToTrash(folder)
-        XCTAssertTrue(folder.isDeleted)
+        XCTAssertTrue(folder.isTrashed)
         XCTAssertEqual(message.folderName, "Corbeille")
         XCTAssertEqual(message.previousFolderName, "Entreprise Renommée")
 
         try environment.store.restoreFolder(folder)
-        XCTAssertFalse(folder.isDeleted)
+        XCTAssertFalse(folder.isTrashed)
         XCTAssertEqual(folder.name, "Entreprise Renommée")
         XCTAssertEqual(message.folderName, "Entreprise Renommée")
         XCTAssertEqual(message.previousFolderName, "")
-        XCTAssertFalse(message.isDeleted)
+        XCTAssertFalse(message.isTrashed)
     }
 
     private func completeDiagnostic() -> DiagnosticRecord {

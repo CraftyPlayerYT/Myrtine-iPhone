@@ -31,7 +31,7 @@ struct ReadMailView: View {
                     Menu {
                         Button { composeMode = .reply } label: { Label("Répondre", systemImage: "arrowshape.turn.up.left") }
                         Button { composeMode = .forward } label: { Label("Transférer", systemImage: "arrowshape.turn.up.right") }
-                        if message.isDeleted {
+                        if message.isTrashed {
                             Button { try? environment.store.restoreMessage(message); dismiss() } label: { Label("Restaurer", systemImage: "arrow.uturn.backward") }
                         } else {
                             Button { try? environment.store.moveMessage(message, to: "Archives"); dismiss() } label: { Label("Archiver", systemImage: "archivebox") }
