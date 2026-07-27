@@ -4,6 +4,7 @@ import XCTest
 final class MyrtineUITests: XCTestCase {
     private var app: XCUIApplication!
 
+    @MainActor
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()

@@ -14,12 +14,19 @@ Ouvrir `Myrtine.xcodeproj`, sélectionner le schéma `Myrtine`, puis lancer l'ap
 
 Le workflow GitHub Actions `iOS 26 verification` crée un simulateur iPhone 14 Plus, compile l'application, exécute les tests unitaires et les parcours d'interface puis publie un artefact `Myrtine-iPhone-14-Plus`.
 
+1. Ouvrir les [exécutions GitHub Actions](https://github.com/CraftyPlayerYT/Myrtine-iPhone/actions/workflows/ios-tests.yml).
+2. Choisir la dernière exécution verte et télécharger `Myrtine-iPhone-14-Plus` dans la section Artifacts.
+3. Consulter directement les PNG du dossier `Screenshots`.
+4. Pour manipuler l'app depuis Windows, envoyer `Myrtine-Simulator.app.zip` sur [Appetize](https://appetize.io/upload). Le fichier est un build natif iOS Simulator ARM, pas une page HTML.
+
 Cet artefact contient :
 
 - les captures PNG prises après chaque action importante ;
 - le rapport Xcode complet `Myrtine.xcresult` ;
 - le journal de compilation ;
 - `Myrtine-Simulator.app.zip`, chargeable dans un simulateur iOS en ligne compatible avec les builds Apple Simulator.
+
+Une installation sur un iPhone physique passe ensuite par TestFlight et nécessite un compte Apple Developer pour signer l'application. Le build Simulator ne peut pas être installé directement sur un iPhone réel.
 
 Les données sont conservées localement avec SwiftData. Les requêtes réseau sont mises en attente hors ligne et reprises à la reconnexion. La clé Perplexity facultative est enregistrée dans le Trousseau iOS depuis Réglages > Intelligence artificielle; aucune clé privée n'est incluse dans les sources.
 

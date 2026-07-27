@@ -36,14 +36,20 @@ final class OfflineAndSyncTests: XCTestCase {
         let message = MailMessageRecord(folderName: folder.name, direction: "received", sender: "client@example.fr", recipient: "contact@myrtine.fr", subject: "Test", body: "Bonjour")
         try environment.store.saveMessage(message, queue: false)
 
+        try environment.store.renameFolder(folder, to: "Entreprise Renommée")
+        XCTAssertEqual(folder.name, "Entreprise Renommée")
+        XCTAssertEqual(message.folderName, "Entreprise Renommée")
+
         try environment.store.moveFolderToTrash(folder)
         XCTAssertTrue(folder.isDeleted)
         XCTAssertEqual(message.folderName, "Corbeille")
-        XCTAssertEqual(message.previousFolderName, "Entreprise Test")
+        XCTAssertEqual(message.previousFolderName, "Entreprise Renommée")
 
         try environment.store.restoreFolder(folder)
         XCTAssertFalse(folder.isDeleted)
-        XCTAssertEqual(message.folderName, "Entreprise Test")
+        XCTAssertEqual(folder.name, "Entreprise Renommée")
+        XCTAssertEqual(message.folderName, "Entreprise Renommée")
+        XCTAssertEqual(message.previousFolderName, "")
         XCTAssertFalse(message.isDeleted)
     }
 

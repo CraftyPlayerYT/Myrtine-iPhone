@@ -18,7 +18,9 @@ struct Surface<Content: View>: View {
     }
 
     var body: some View {
-        content
+        VStack(alignment: .leading, spacing: 14) {
+            content
+        }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(MyrtineTheme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))

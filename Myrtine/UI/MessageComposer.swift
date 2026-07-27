@@ -22,6 +22,7 @@ struct MessageComposer: UIViewControllerRepresentable {
     final class Coordinator: NSObject, MFMessageComposeViewControllerDelegate {
         let dismiss: DismissAction
         init(dismiss: DismissAction) { self.dismiss = dismiss }
+        @MainActor
         func messageComposeViewController(_ controller: MFMessageComposeViewController, didFinishWith result: MessageComposeResult) { dismiss() }
     }
 }

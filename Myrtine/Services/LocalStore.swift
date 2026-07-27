@@ -198,13 +198,16 @@ final class LocalStore {
         guard !cleanName.isEmpty else { throw StoreError.invalidName }
         guard self.folder(named: cleanName) == nil else { throw StoreError.duplicateName }
         let oldName = folder.name
+        let containedMessages = messages(in: oldName, includeDeleted: true)
+
         folder.name = cleanName
         folder.updatedAt = .now
-        for message in messages(in: oldName, includeDeleted: true) {
+        for message in containedMessages {
             message.folderName = cleanName
             message.updatedAt = .now
             message.syncRequired = true
         }
+        try save()
         try enqueue(operation: "rename_folder", entityID: folder.id)
     }
 

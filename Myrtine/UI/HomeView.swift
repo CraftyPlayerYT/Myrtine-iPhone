@@ -59,6 +59,8 @@ struct HomeView: View {
                     Text(environment.network.isOnline ? "Synchronisation via \(environment.network.interfaceName)" : "Consultation et saisie locales disponibles")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
             }
