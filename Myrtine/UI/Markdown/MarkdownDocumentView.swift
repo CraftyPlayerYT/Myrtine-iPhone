@@ -81,7 +81,8 @@ private struct MarkdownTableView: View {
         }
         .font(header ? .subheadline.weight(.bold) : .footnote)
         .foregroundStyle(header ? Color.white : MyrtineTheme.ink)
-        .frame(width: width, minHeight: 48, alignment: .topLeading)
+        .frame(width: width, alignment: .topLeading)
+        .frame(minHeight: 48, alignment: .topLeading)
         .padding(10)
         .background(header ? MyrtineTheme.ink : .clear)
         .overlay(alignment: .trailing) { Rectangle().fill(header ? Color.white.opacity(0.16) : MyrtineTheme.divider).frame(width: 1) }
