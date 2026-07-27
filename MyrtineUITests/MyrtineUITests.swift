@@ -142,7 +142,7 @@ final class MyrtineUITests: XCTestCase {
         let field = app.textFields[identifier]
         XCTAssertTrue(field.waitForExistence(timeout: 3), "Champ introuvable : \(identifier)")
         var attempts = 0
-        while !field.isHittable && attempts < 5 {
+        while (!field.isHittable || (app.keyboards.count > 0 && field.frame.maxY > 500)) && attempts < 8 {
             app.swipeUp()
             attempts += 1
         }

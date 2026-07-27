@@ -14,7 +14,6 @@ struct DiagnosticsHomeView: View {
     @State private var scope: Scope = .unread
     @State private var search = ""
     @State private var selectedDiagnostic: DiagnosticRecord?
-    @State private var showDetails = false
     @State private var showNewDiagnostic = false
 
     private var filtered: [DiagnosticRecord] {
@@ -82,8 +81,8 @@ struct DiagnosticsHomeView: View {
                 }
             }
             .fullScreenCover(isPresented: $showNewDiagnostic) { NewDiagnosticView() }
-            .fullScreenCover(isPresented: $showDetails, onDismiss: { selectedDiagnostic = nil }) {
-                if let selectedDiagnostic { DiagnosticDetailView(diagnostic: selectedDiagnostic) }
+            .fullScreenCover(item: $selectedDiagnostic) { diagnostic in
+                DiagnosticDetailView(diagnostic: diagnostic)
             }
             .onChange(of: environment.presentDiagnosticID) { _, id in
                 guard let id, let diagnostic = allDiagnostics.first(where: { $0.id == id }) else { return }
@@ -95,7 +94,6 @@ struct DiagnosticsHomeView: View {
 
     private func open(_ diagnostic: DiagnosticRecord) {
         selectedDiagnostic = diagnostic
-        showDetails = true
     }
 
     @ViewBuilder private func actions(for diagnostic: DiagnosticRecord) -> some View {
