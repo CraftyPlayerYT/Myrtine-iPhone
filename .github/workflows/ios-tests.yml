@@ -1,0 +1,94 @@
+name: iOS 26 verification
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, "codex/**"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Apple toolchain
+        run: |
+          xcodebuild -version
+          xcrun simctl list runtimes
+          xcrun simctl list devicetypes
+
+      - name: Create an iPhone 14 Plus simulator
+        id: simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEVICE_TYPE="com.apple.CoreSimulator.SimDeviceType.iPhone-14-Plus"
+          if ! xcrun simctl list devicetypes | grep -q "iPhone 14 Plus"; then
+            echo "The iPhone 14 Plus simulator device type is unavailable." >&2
+            exit 1
+          fi
+
+          RUNTIME_ID="$(xcrun simctl list runtimes --json | python3 -c '
+          import json, sys
+          runtimes = [
+              runtime for runtime in json.load(sys.stdin)["runtimes"]
+              if runtime.get("isAvailable") and runtime.get("platform") == "iOS"
+          ]
+          if not runtimes:
+              raise SystemExit("No available iOS simulator runtime")
+          runtimes.sort(key=lambda runtime: tuple(int(part) for part in runtime["version"].split(".")))
+          print(runtimes[-1]["identifier"])
+          ')"
+
+          UDID="$(xcrun simctl create "Myrtine iPhone 14 Plus" "$DEVICE_TYPE" "$RUNTIME_ID")"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl status_bar "$UDID" override \
+            --time "09:41" \
+            --batteryState charged \
+            --batteryLevel 100 \
+            --wifiBars 3 \
+            --cellularBars 4 || true
+
+      - name: Build and test on iPhone 14 Plus
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p TestResults
+          xcodebuild test \
+            -project Myrtine.xcodeproj \
+            -scheme Myrtine \
+            -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
+            -derivedDataPath DerivedData \
+            -resultBundlePath TestResults/Myrtine.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee TestResults/xcodebuild.log
+
+      - name: Export screenshots and simulator application
+        if: always()
+        shell: bash
+        run: |
+          if [ -d TestResults/Myrtine.xcresult ]; then
+            mkdir -p TestResults/Screenshots
+            xcrun xcresulttool export attachments \
+              --path TestResults/Myrtine.xcresult \
+              --output-path TestResults/Screenshots || true
+          fi
+
+          APP_PATH="DerivedData/Build/Products/Debug-iphonesimulator/Myrtine.app"
+          if [ -d "$APP_PATH" ]; then
+            ditto -c -k --sequesterRsrc --keepParent \
+              "$APP_PATH" \
+              TestResults/Myrtine-Simulator.app.zip
+          fi
+
+      - name: Upload tests, screenshots and simulator application
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Myrtine-iPhone-14-Plus
+          path: TestResults
+          retention-days: 14
