@@ -109,6 +109,15 @@ final class MyrtineUITests: XCTestCase {
         submit.tap()
         XCTAssertTrue(app.navigationBars["Diagnostic"].waitForExistence(timeout: 10))
         capture("44-resultat-ouvert-automatiquement")
+
+        let detail = app.scrollViews.firstMatch
+        let resultTitle = app.staticTexts["Résultat"]
+        for _ in 0..<5 where !resultTitle.isHittable {
+            detail.swipeUp()
+        }
+        XCTAssertTrue(resultTitle.isHittable)
+        XCTAssertTrue(app.otherElements["Tableau des aides, 2 lignes"].exists)
+        capture("45-resultat-markdown-rendu")
     }
 
     func testAirplaneModeKeepsLocalAppUsable() throws {
@@ -127,6 +136,7 @@ final class MyrtineUITests: XCTestCase {
     }
 
     private func capture(_ name: String) {
+        Thread.sleep(forTimeInterval: 0.45)
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
