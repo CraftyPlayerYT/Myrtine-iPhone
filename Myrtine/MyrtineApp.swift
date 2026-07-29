@@ -42,12 +42,12 @@ final class MyrtineAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificat
         NotificationCenter.default.post(name: .myrtineAPNSError, object: error.localizedDescription)
     }
 
-    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
         PushNotificationBridge.publish(notification.request.content.userInfo, persist: false)
         return []
     }
 
-    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
         PushNotificationBridge.publish(response.notification.request.content.userInfo, persist: true)
     }
 }
