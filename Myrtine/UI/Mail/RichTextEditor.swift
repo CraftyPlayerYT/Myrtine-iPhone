@@ -209,7 +209,10 @@ struct RichTextEditor: UIViewRepresentable {
         let controller: RichTextEditorController
         init(controller: RichTextEditorController) { self.controller = controller }
         func textViewDidChange(_ textView: UITextView) { controller.synchronize(from: textView) }
-        func textViewDidChangeSelection(_ textView: UITextView) { controller.selection = textView.selectedRange }
+        func textViewDidChangeSelection(_ textView: UITextView) {
+            controller.selection = textView.selectedRange
+            controller.formattingRevision += 1
+        }
     }
 }
 
