@@ -1,6 +1,5 @@
 import XCTest
 
-@MainActor
 final class MyrtineUITests: XCTestCase {
     private var app: XCUIApplication!
 
