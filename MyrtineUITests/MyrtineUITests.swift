@@ -148,9 +148,11 @@ final class MyrtineUITests: XCTestCase {
     }
 
     func testFirstLaunchActivationIsServerDriven() throws {
-        let code = app.secureTextFields["activation-code"]
+        let code = app.textFields["activation-code"]
         code.tap()
-        code.typeText("TEST-CODE")
+        code.typeText("060213121215061222")
+        XCTAssertEqual(code.value as? String, "060213-121215-061222")
+        capture("50a-activation-code-formate")
         app.buttons["activation-submit"].tap()
         XCTAssertTrue(app.navigationBars["Myrtine"].waitForExistence(timeout: 8))
         capture("51-activation-terminee")

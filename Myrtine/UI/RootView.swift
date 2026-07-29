@@ -118,10 +118,14 @@ private struct ActivationView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Code d’accès")
                             .font(.subheadline.weight(.semibold))
-                        SecureField("••••••-••••••-••••••", text: $code)
+                        TextField("000000-000000-000000", text: Binding(
+                            get: { code },
+                            set: { code = ActivationCodeFormatter.format($0) }
+                        ))
+                            .keyboardType(.numberPad)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
-                            .textContentType(.password)
+                            .textContentType(.oneTimeCode)
                             .font(.title3.monospaced())
                             .padding(.horizontal, 16)
                             .frame(minHeight: 56)
@@ -142,7 +146,7 @@ private struct ActivationView: View {
                         else { Label("Vérifier et activer", systemImage: "checkmark.shield.fill") }
                     }
                     .buttonStyle(PrimaryButtonStyle())
-                    .disabled(isChecking || code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !environment.network.isOnline)
+                    .disabled(isChecking || !ActivationCodeFormatter.isComplete(code) || !environment.network.isOnline)
                     .accessibilityIdentifier("activation-submit")
 
                     if !environment.network.isOnline {
@@ -168,6 +172,25 @@ private struct ActivationView: View {
             catch { errorMessage = error.localizedDescription }
             isChecking = false
         }
+    }
+}
+
+enum ActivationCodeFormatter {
+    private static let digitsPerGroup = 6
+    private static let digitCount = 18
+
+    static func format(_ value: String) -> String {
+        let digits = Array(value.filter { "0123456789".contains($0) }.prefix(digitCount))
+        return stride(from: 0, to: digits.count, by: digitsPerGroup)
+            .map { start in
+                let end = min(start + digitsPerGroup, digits.count)
+                return String(digits[start..<end])
+            }
+            .joined(separator: "-")
+    }
+
+    static func isComplete(_ value: String) -> Bool {
+        format(value).count == digitCount + 2
     }
 }
 

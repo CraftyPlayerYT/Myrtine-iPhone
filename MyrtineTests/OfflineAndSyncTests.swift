@@ -3,6 +3,15 @@ import XCTest
 
 @MainActor
 final class OfflineAndSyncTests: XCTestCase {
+    func testActivationCodeFormatterAddsVisibleSeparators() {
+        XCTAssertEqual(ActivationCodeFormatter.format("060213"), "060213")
+        XCTAssertEqual(ActivationCodeFormatter.format("0602131"), "060213-1")
+        XCTAssertEqual(ActivationCodeFormatter.format("060213121215061222"), "060213-121215-061222")
+        XCTAssertEqual(ActivationCodeFormatter.format("060213-121215-061222999"), "060213-121215-061222")
+        XCTAssertTrue(ActivationCodeFormatter.isComplete("060213121215061222"))
+        XCTAssertFalse(ActivationCodeFormatter.isComplete("060213121215"))
+    }
+
     func testActivationTokenNamespaceInvalidatesPreReleaseToken() {
         XCTAssertEqual(MyrtineAPIClient.legacyActivationTokenAccount, "iphone-activation-token")
         XCTAssertEqual(MyrtineAPIClient.activationTokenAccount, "iphone-activation-token-v2")
