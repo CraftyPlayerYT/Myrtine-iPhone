@@ -42,7 +42,7 @@ final class AppEnvironment {
         api = apiClient
         supabase = supabaseClient
         sync = SyncCoordinator(network: network, store: localStore, api: apiClient, supabase: supabaseClient)
-        isActivated = apiClient.isActivated
+        isActivated = apiClient.isActivated && !ProcessInfo.processInfo.arguments.contains("-force-activation")
     }
 
     func start() async {

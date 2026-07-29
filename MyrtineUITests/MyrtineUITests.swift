@@ -10,7 +10,17 @@ final class MyrtineUITests: XCTestCase {
         if name.contains("testCompleteDiagnosticFormAndAutomaticResultOpening") {
             app.launchArguments.append("-prefill-diagnostic")
         }
+        if name.contains("testFirstLaunchActivation") {
+            app.launchArguments.append("-force-activation")
+        }
         app.launch()
+        if name.contains("testFirstLaunchActivation") {
+            XCTAssertTrue(app.staticTexts["Activer Myrtine"].waitForExistence(timeout: 8))
+            XCTAssertEqual(app.windows.firstMatch.frame.width, 428, accuracy: 2)
+            XCTAssertEqual(app.windows.firstMatch.frame.height, 926, accuracy: 2)
+            capture("50-activation-premier-lancement")
+            return
+        }
         XCTAssertTrue(app.navigationBars["Myrtine"].waitForExistence(timeout: 8))
         XCTAssertEqual(app.windows.firstMatch.frame.width, 428, accuracy: 2, "Les tests visuels doivent être lancés sur un iPhone 14 Plus en portrait.")
         XCTAssertEqual(app.windows.firstMatch.frame.height, 926, accuracy: 2, "Les tests visuels doivent être lancés sur un iPhone 14 Plus en portrait.")
@@ -134,6 +144,24 @@ final class MyrtineUITests: XCTestCase {
 
         app.tabBars.buttons["Diagnostics"].tap()
         capture("22-mode-avion-diagnostics")
+    }
+
+    func testFirstLaunchActivationIsServerDriven() throws {
+        let code = app.secureTextFields["activation-code"]
+        code.tap()
+        code.typeText("TEST-CODE")
+        app.buttons["activation-submit"].tap()
+        XCTAssertTrue(app.navigationBars["Myrtine"].waitForExistence(timeout: 8))
+        capture("51-activation-terminee")
+    }
+
+    func testTrashDoesNotOfferMessageComposition() throws {
+        app.tabBars.buttons["Messagerie"].tap()
+        XCTAssertTrue(app.staticTexts["Corbeille"].waitForExistence(timeout: 5))
+        app.staticTexts["Corbeille"].tap()
+        XCTAssertTrue(app.navigationBars["Corbeille"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Nouveau message"].exists)
+        capture("52-corbeille-sans-composition")
     }
 
     private func capture(_ name: String) {
