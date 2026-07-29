@@ -21,7 +21,7 @@ final class SupabaseSyncClient {
         for row in snapshot.diagnostics { try store.upsertRemoteDiagnostic(row.snapshot) }
         for row in snapshot.clients { try store.upsertClient(row.snapshot) }
         for row in snapshot.folders {
-            try store.upsertRemoteFolder(name: row.name, kind: row.kind, sortOrder: row.sortOrder, createdAt: row.createdAt, updatedAt: row.updatedAt, isDeleted: row.isDeleted, previousName: row.previousName ?? "")
+            try store.upsertRemoteFolder(name: row.name, kind: row.kind, sortOrder: row.sortOrder, createdAt: row.createdAt, updatedAt: row.updatedAt, isDeleted: row.isDeleted ?? false, previousName: row.previousName ?? "")
         }
         for row in snapshot.messages { try store.upsertRemoteMessage(row.snapshot) }
     }
@@ -92,7 +92,7 @@ private struct RemoteDiagnostic: Codable {
     let phone: String
     let resultMarkdown: String?
     let lastError: String?
-    let isDeleted: Bool
+    let isDeleted: Bool?
     let syncRequired: Bool
     let isRead: Bool
 
@@ -183,13 +183,13 @@ private struct RemoteMail: Codable {
     let body: String
     let htmlBody: String?
     let isRead: Bool
-    let isDeleted: Bool
+    let isDeleted: Bool?
     let previousFolderName: String?
 
     init(_ value: MailMessageRecord) {
         id = value.id; folderName = value.folderName; createdAt = value.createdAt; updatedAt = value.updatedAt; direction = value.direction; sender = value.sender; recipient = value.recipient; subject = value.subject; body = value.body; htmlBody = value.htmlBody; isRead = value.isRead; isDeleted = value.isTrashed; previousFolderName = value.previousFolderName.isEmpty ? nil : value.previousFolderName
     }
-    var snapshot: MailSnapshot { MailSnapshot(id: id, folderName: folderName, createdAt: createdAt, updatedAt: updatedAt, direction: direction, sender: sender, recipient: recipient, subject: subject, body: body, htmlBody: htmlBody ?? "", isRead: isRead, isDeleted: isDeleted, previousFolderName: previousFolderName ?? "") }
+    var snapshot: MailSnapshot { MailSnapshot(id: id, folderName: folderName, createdAt: createdAt, updatedAt: updatedAt, direction: direction, sender: sender, recipient: recipient, subject: subject, body: body, htmlBody: htmlBody ?? "", isRead: isRead, isDeleted: isDeleted ?? false, previousFolderName: previousFolderName ?? "") }
     enum CodingKeys: String, CodingKey {
         case id, direction, sender, recipient, subject, body
         case folderName = "folder_name", createdAt = "created_at", updatedAt = "updated_at", htmlBody = "html_body", isRead = "is_read", isDeleted = "is_deleted", previousFolderName = "previous_folder_name"
