@@ -4,7 +4,10 @@ import Foundation
 final class MyrtineAPIClient {
     static let serverURL = URL(string: "https://serveur.myrtine.fr")!
     static let senderAddress = "contact@myrtine.fr"
-    static let activationTokenAccount = "iphone-activation-token"
+    // Versioned once to invalidate tokens created by pre-release simulator builds.
+    // Future updates keep this account so a verified installation stays activated.
+    static let activationTokenAccount = "iphone-activation-token-v2"
+    private static let legacyActivationTokenAccount = "iphone-activation-token"
     private static let installationIDKey = "myrtine-installation-id"
 
     enum SimulationFailure: String, CaseIterable, Identifiable {
@@ -43,6 +46,9 @@ final class MyrtineAPIClient {
         self.network = network
         self.store = store
         self.useMocks = useMocks
+        if KeychainStore.get(Self.activationTokenAccount) == nil {
+            KeychainStore.remove(Self.legacyActivationTokenAccount)
+        }
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 285
         configuration.timeoutIntervalForResource = 300
