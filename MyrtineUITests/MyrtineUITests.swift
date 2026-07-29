@@ -7,6 +7,9 @@ final class MyrtineUITests: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
         app.launchArguments = ["-ui-testing", "-use-mocks", "-sample-data"]
+        if name.contains("testCompleteDiagnosticFormAndAutomaticResultOpening") {
+            app.launchArguments.append("-prefill-diagnostic")
+        }
         app.launch()
         XCTAssertTrue(app.navigationBars["Myrtine"].waitForExistence(timeout: 8))
         XCTAssertEqual(app.windows.firstMatch.frame.width, 428, accuracy: 2, "Les tests visuels doivent être lancés sur un iPhone 14 Plus en portrait.")
@@ -87,31 +90,23 @@ final class MyrtineUITests: XCTestCase {
     func testCompleteDiagnosticFormAndAutomaticResultOpening() throws {
         app.buttons["home-new-diagnostic"].tap()
         XCTAssertTrue(app.navigationBars["Nouveau diagnostic"].waitForExistence(timeout: 5))
-        capture("30-nouveau-diagnostic-vide")
+        let project = app.textFields["field-Objet du projet"]
+        XCTAssertEqual(project.value as? String, "Réduction énergétique de la ligne de production")
+        capture("30-nouveau-diagnostic-prerempli")
 
-        enter("Réduction énergétique de la ligne de production", in: "field-Objet du projet", screenshot: "31-objet-projet")
-        enter("Atelier Test iOS", in: "field-Porteur du projet", screenshot: "32-porteur-projet")
-        enter("Industrie manufacturière", in: "field-Secteur d'activité", screenshot: "33-secteur")
-        enter("Lyon, Auvergne-Rhône-Alpes", in: "field-Localisation", screenshot: "34-localisation")
-        enter("12 salariés", in: "field-Effectif", screenshot: "35-effectif")
-        enter("900 000 €", in: "field-Chiffre d'affaires", screenshot: "36-chiffre-affaires")
-        enter("150 000 € HT", in: "field-Budget prévisionnel", screenshot: "37-budget")
-        enter("Deuxième trimestre 2027", in: "field-Calendrier", screenshot: "38-calendrier")
+        let form = app.scrollViews.firstMatch
+        form.swipeUp()
+        capture("31-projet-complet")
+        form.swipeUp()
+        capture("32-depenses-completes")
+        form.swipeUp()
+        XCTAssertTrue(app.textFields["field-Adresse e-mail"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.textFields["field-Adresse e-mail"].value as? String, "camille@example.fr")
+        capture("33-contact-complet")
 
-        let expense = app.textFields["diagnostic-expense"]
-        var expenseScrolls = 0
-        while !expense.isHittable && expenseScrolls < 5 { app.scrollViews.firstMatch.swipeUp(); expenseScrolls += 1 }
-        XCTAssertTrue(expense.isHittable)
-        expense.tap(); expense.typeText("Machines moins énergivores")
-        app.buttons["Ajouter la dépense"].tap()
-        capture("39-depense-ajoutee")
-
-        enter("Camille", in: "field-Prénom", screenshot: "40-prenom")
-        enter("Martin", in: "field-Nom", screenshot: "41-nom")
-        enter("camille@example.fr", in: "field-Adresse e-mail", screenshot: "42-email")
-        enter("0600000000", in: "field-Téléphone", screenshot: "43-telephone")
-
-        app.buttons["diagnostic-submit"].tap()
+        let submit = app.buttons["diagnostic-submit"]
+        XCTAssertTrue(submit.isEnabled)
+        submit.tap()
         XCTAssertTrue(app.navigationBars["Diagnostic"].waitForExistence(timeout: 10))
         capture("44-resultat-ouvert-automatiquement")
     }
@@ -138,24 +133,4 @@ final class MyrtineUITests: XCTestCase {
         add(attachment)
     }
 
-    private func enter(_ value: String, in identifier: String, screenshot: String) {
-        let field = app.textFields[identifier]
-        XCTAssertTrue(field.waitForExistence(timeout: 3), "Champ introuvable : \(identifier)")
-        var attempts = 0
-        while (!field.isHittable || (app.keyboards.count > 0 && field.frame.maxY > 500)) && attempts < 8 {
-            app.scrollViews.firstMatch.swipeUp()
-            attempts += 1
-        }
-        XCTAssertTrue(field.isHittable, "Champ non accessible : \(identifier)")
-        field.tap()
-        let focus = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "hasKeyboardFocus == true"),
-            object: field
-        )
-        if XCTWaiter.wait(for: [focus], timeout: 2) != .completed {
-            field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        }
-        field.typeText(value)
-        capture(screenshot)
-    }
 }

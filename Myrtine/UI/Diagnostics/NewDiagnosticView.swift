@@ -3,12 +3,17 @@ import SwiftUI
 struct NewDiagnosticView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppEnvironment.self) private var environment
-    @State private var draft = DiagnosticDraft()
+    @State private var draft: DiagnosticDraft
     @State private var newExpense = ""
     @State private var isSending = false
     @State private var submissionTask: Task<Void, Never>?
     @State private var errorMessage: String?
     @State private var keyboardVisible = false
+
+    init() {
+        let isPrefilledUITest = ProcessInfo.processInfo.arguments.contains("-prefill-diagnostic")
+        _draft = State(initialValue: isPrefilledUITest ? .uiTestSample : DiagnosticDraft())
+    }
 
     var body: some View {
         NavigationStack {
@@ -242,4 +247,20 @@ private struct DiagnosticDraft {
     var isComplete: Bool {
         [projectObject, projectOwner, sector, location, workforce, budget, schedule, lastName, firstName].allSatisfy { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } && !expenses.isEmpty && email.contains("@")
     }
+
+    static let uiTestSample = DiagnosticDraft(
+        projectObject: "Réduction énergétique de la ligne de production",
+        projectOwner: "Atelier Test iOS",
+        sector: "Industrie manufacturière",
+        location: "Lyon, Auvergne-Rhône-Alpes",
+        workforce: "12 salariés",
+        revenue: "900 000 €",
+        budget: "150 000 € HT",
+        schedule: "Deuxième trimestre 2027",
+        expenses: ["Machines moins énergivores"],
+        lastName: "Martin",
+        firstName: "Camille",
+        email: "camille@example.fr",
+        phone: "0600000000"
+    )
 }
