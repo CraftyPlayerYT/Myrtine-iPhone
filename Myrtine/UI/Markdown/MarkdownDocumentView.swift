@@ -70,6 +70,7 @@ private struct MarkdownTableView: View {
             .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MyrtineTheme.divider) }
         }
         .scrollIndicators(.visible)
+        .accessibilityIdentifier("diagnostic-result-table")
         .accessibilityLabel("Tableau des aides, \(rows.count) lignes")
     }
 

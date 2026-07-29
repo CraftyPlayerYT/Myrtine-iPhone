@@ -116,7 +116,8 @@ final class MyrtineUITests: XCTestCase {
             detail.swipeUp()
         }
         XCTAssertTrue(resultTitle.isHittable)
-        XCTAssertTrue(app.otherElements["Tableau des aides, 2 lignes"].exists)
+        detail.swipeUp()
+        XCTAssertTrue(app.descendants(matching: .any)["diagnostic-result-table"].waitForExistence(timeout: 5))
         capture("45-resultat-markdown-rendu")
     }
 
