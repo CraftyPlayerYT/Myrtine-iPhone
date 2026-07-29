@@ -29,11 +29,20 @@ final class AppEnvironment {
     init(inMemory: Bool = false, useMocks: Bool = false) {
         let schema = Schema(MyrtineSchema.types)
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
+        let resolvedContainer: ModelContainer
+        var storageWarning: String?
         do {
-            container = try ModelContainer(for: schema, configurations: [configuration])
+            resolvedContainer = try ModelContainer(for: schema, configurations: [configuration])
         } catch {
-            fatalError("Impossible d'initialiser SwiftData: \(error)")
+            storageWarning = error.localizedDescription
+            let fallback = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            do {
+                resolvedContainer = try ModelContainer(for: schema, configurations: [fallback])
+            } catch {
+                preconditionFailure("Impossible d'initialiser le stockage local: \(error)")
+            }
         }
+        container = resolvedContainer
 
         let localStore = LocalStore(context: container.mainContext)
         let apiClient = MyrtineAPIClient(network: network, store: localStore, useMocks: useMocks)
@@ -43,6 +52,9 @@ final class AppEnvironment {
         supabase = supabaseClient
         sync = SyncCoordinator(network: network, store: localStore, api: apiClient, supabase: supabaseClient)
         isActivated = apiClient.isActivated && !ProcessInfo.processInfo.arguments.contains("-force-activation")
+        if let storageWarning {
+            localStore.log(level: "Erreur", category: "Stockage", message: "Cache local ouvert en mode de secours", detail: storageWarning)
+        }
     }
 
     func start() async {
