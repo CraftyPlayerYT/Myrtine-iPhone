@@ -7,6 +7,19 @@ struct RootView: View {
 
     var body: some View {
         @Bindable var environment = environment
+        Group {
+            if environment.isActivated {
+                applicationTabs(environment: environment)
+            } else {
+                ActivationView()
+            }
+        }
+        .animation(.smooth, value: environment.isActivated)
+    }
+
+    @ViewBuilder
+    private func applicationTabs(environment: AppEnvironment) -> some View {
+        @Bindable var environment = environment
         TabView(selection: $environment.selectedTab) {
             HomeView()
                 .tag(AppEnvironment.SelectedTab.home)
@@ -40,6 +53,13 @@ struct RootView: View {
                     .padding(.top, 8)
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .zIndex(20)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if let destination = toast.destination {
+                            environment.open(destination)
+                            environment.toast = nil
+                        }
+                    }
                     .task(id: toast.id) {
                         try? await Task.sleep(for: .seconds(4))
                         if environment.toast?.id == toast.id { environment.toast = nil }
@@ -64,6 +84,89 @@ struct RootView: View {
         case 4: .xxLarge
         case 5: .xxxLarge
         default: .large
+        }
+    }
+}
+
+private struct ActivationView: View {
+    @Environment(AppEnvironment.self) private var environment
+    @State private var code = ""
+    @State private var isChecking = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        ZStack {
+            MyrtineTheme.canvas.ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 28) {
+                    Image("MyrtineMark")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 112, height: 112)
+                        .accessibilityHidden(true)
+
+                    VStack(spacing: 8) {
+                        Text("Activer Myrtine")
+                            .font(.largeTitle.bold())
+                            .foregroundStyle(MyrtineTheme.ink)
+                        Text("Saisissez le code d’accès administrateur. La vérification est effectuée uniquement par le serveur Myrtine.")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Code d’accès")
+                            .font(.subheadline.weight(.semibold))
+                        SecureField("••••••-••••••-••••••", text: $code)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .textContentType(.password)
+                            .font(.title3.monospaced())
+                            .padding(.horizontal, 16)
+                            .frame(minHeight: 56)
+                            .background(.white.opacity(0.76), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .overlay { RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(MyrtineTheme.accent.opacity(0.5), lineWidth: 1.5) }
+                            .accessibilityIdentifier("activation-code")
+                    }
+
+                    if let errorMessage {
+                        Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    Button { activate() } label: {
+                        if isChecking { ProgressView().tint(.white) }
+                        else { Label("Vérifier et activer", systemImage: "checkmark.shield.fill") }
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .disabled(isChecking || code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !environment.network.isOnline)
+                    .accessibilityIdentifier("activation-submit")
+
+                    if !environment.network.isOnline {
+                        Label("Une connexion Internet est nécessaire pour la première activation.", systemImage: "wifi.slash")
+                            .font(.footnote.weight(.medium))
+                            .foregroundStyle(.orange)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 56)
+                .frame(maxWidth: 520)
+                .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    private func activate() {
+        isChecking = true
+        errorMessage = nil
+        Task {
+            do { try await environment.activate(code: code) }
+            catch { errorMessage = error.localizedDescription }
+            isChecking = false
         }
     }
 }

@@ -11,30 +11,22 @@ struct MailHomeView: View {
     @State private var editFolder: MailFolderRecord?
     @State private var editFolderName = ""
     @State private var errorMessage: String?
+    @State private var notificationMessage: MailMessageRecord?
+    @State private var navigationPath: [String] = []
+    @State private var restoredLastFolder = false
+    @AppStorage("mail.last.folder") private var lastFolderName = ""
 
     private var folders: [MailFolderRecord] { allFolders.filter { !$0.isTrashed }.sorted { $0.sortOrder < $1.sortOrder } }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             List {
-                Section {
-                    Button { showCompose = true } label: {
-                        Label("Nouveau message", systemImage: "square.and.pencil")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity, minHeight: 50)
-                    }
-                    .listRowBackground(MyrtineTheme.accent)
-                    .accessibilityIdentifier("mail-compose")
-                }
-
                 Section("contact@myrtine.fr") {
                     ForEach(folders) { folder in
-                        NavigationLink {
-                            MailFolderView(folder: folder)
-                        } label: {
+                        NavigationLink(value: folder.name) {
                             FolderRow(folder: folder, count: messageCount(folder), unread: unreadCount(folder))
                         }
+                        .accessibilityIdentifier("mail-folder-\(folder.kind)")
                         .contextMenu {
                             if folder.kind == "custom" {
                                 Button { beginRename(folder) } label: { Label("Renommer", systemImage: "pencil") }
@@ -58,7 +50,25 @@ struct MailHomeView: View {
             .scrollContentBackground(.hidden)
             .myrtineScreen()
             .navigationTitle("Messagerie")
+            .navigationDestination(for: String.self) { folderName in
+                if let folder = allFolders.first(where: { $0.name == folderName && !$0.isTrashed }) {
+                    MailFolderView(folder: folder)
+                        .onAppear { lastFolderName = folder.name }
+                } else {
+                    EmptyStateView(systemImage: "folder.badge.questionmark", title: "Dossier indisponible", message: "Ce dossier n’existe plus.")
+                }
+            }
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { showCompose = true } label: {
+                        Image(systemName: "square.and.pencil")
+                            .font(.body.weight(.semibold))
+                            .frame(width: 44, height: 44)
+                    }
+                    .glassEffect(.regular.tint(MyrtineTheme.accent.opacity(0.16)).interactive(), in: .circle)
+                    .accessibilityLabel("Nouveau message")
+                    .accessibilityIdentifier("mail-compose")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { Task { await environment.synchronize() } } label: {
                         Group { if environment.isSyncing { ProgressView() } else { Image(systemName: "arrow.clockwise") } }
@@ -69,6 +79,7 @@ struct MailHomeView: View {
                 }
             }
             .fullScreenCover(isPresented: $showCompose) { ComposeMailView() }
+            .fullScreenCover(item: $notificationMessage) { message in ReadMailView(message: message) }
             .alert("Nouveau dossier", isPresented: $showCreateFolder) {
                 TextField("Nom du dossier", text: $newFolderName)
                 Button("Annuler", role: .cancel) { newFolderName = "" }
@@ -82,16 +93,34 @@ struct MailHomeView: View {
             .alert("Action impossible", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
                 Button("OK", role: .cancel) { errorMessage = nil }
             } message: { Text(errorMessage ?? "Erreur inconnue") }
+            .onAppear {
+                guard !restoredLastFolder else { return }
+                restoredLastFolder = true
+                if folders.contains(where: { $0.name == lastFolderName }) { navigationPath = [lastFolderName] }
+                if let id = environment.presentMessageID { Task { await openNotificationMessage(id) } }
+            }
+            .onChange(of: environment.presentMessageID) { _, id in
+                if let id { Task { await openNotificationMessage(id) } }
+            }
         }
     }
 
     private func messageCount(_ folder: MailFolderRecord) -> Int {
-        if folder.kind == "trash" { return allMessages.filter { $0.isTrashed }.count + allFolders.filter { $0.isTrashed }.count }
-        return allMessages.filter { !$0.isTrashed && $0.folderName == folder.name }.count
+        allMessages.filter { messageBelongs($0, to: folder) }.count
     }
 
     private func unreadCount(_ folder: MailFolderRecord) -> Int {
-        allMessages.filter { !$0.isTrashed && $0.folderName == folder.name && !$0.isRead }.count
+        allMessages.filter { messageBelongs($0, to: folder) && !$0.isRead }.count
+    }
+
+    private func messageBelongs(_ message: MailMessageRecord, to folder: MailFolderRecord) -> Bool {
+        return switch folder.kind {
+        case "trash": message.isTrashed
+        case "inbox": !message.isTrashed && message.direction == "received"
+        case "sent": !message.isTrashed && message.direction == "sent"
+        case "custom": !message.isTrashed && (message.folderName.caseInsensitiveCompare(folder.name) == .orderedSame || message.correspondent.caseInsensitiveCompare(folder.name) == .orderedSame)
+        default: !message.isTrashed && message.folderName.caseInsensitiveCompare(folder.name) == .orderedSame
+        }
     }
 
     private func createFolder() {
@@ -111,6 +140,21 @@ struct MailHomeView: View {
         do { try environment.store.moveFolderToTrash(folder); environment.toast = ToastMessage(title: "Dossier supprimé", message: "Il peut être restauré depuis la corbeille.", kind: .information) }
         catch { errorMessage = error.localizedDescription }
     }
+
+    private func openNotificationMessage(_ id: String) async {
+        if let message = allMessages.first(where: { $0.id == id }) {
+            environment.presentMessageID = nil
+            notificationMessage = message
+            return
+        }
+        await environment.synchronize()
+        if let message = allMessages.first(where: { $0.id == id }) {
+            environment.presentMessageID = nil
+            notificationMessage = message
+        } else {
+            environment.toast = ToastMessage(title: "Message introuvable", message: "Il n’a pas encore été synchronisé.", kind: .warning)
+        }
+    }
 }
 
 private struct FolderRow: View {
@@ -126,7 +170,6 @@ private struct FolderRow: View {
             else if count > 0 { Text("\(count)").font(.caption).foregroundStyle(.secondary) }
         }
         .frame(minHeight: 48)
-        .accessibilityElement(children: .combine)
     }
 }
 
@@ -141,7 +184,13 @@ struct MailFolderView: View {
 
     private var messages: [MailMessageRecord] {
         allMessages.filter { message in
-            let belongs = folder.kind == "trash" ? message.isTrashed : !message.isTrashed && message.folderName == folder.name
+            let belongs = switch folder.kind {
+            case "trash": message.isTrashed
+            case "inbox": !message.isTrashed && message.direction == "received"
+            case "sent": !message.isTrashed && message.direction == "sent"
+            case "custom": !message.isTrashed && (message.folderName.caseInsensitiveCompare(folder.name) == .orderedSame || message.correspondent.caseInsensitiveCompare(folder.name) == .orderedSame)
+            default: !message.isTrashed && message.folderName.caseInsensitiveCompare(folder.name) == .orderedSame
+            }
             return belongs && (search.isEmpty || [message.correspondent, message.subject, message.body].contains { $0.localizedCaseInsensitiveContains(search) })
         }
     }
@@ -169,7 +218,10 @@ struct MailFolderView: View {
                     Section(messages.isEmpty ? "" : "Messages") {
                         ForEach(messages) { message in
                             HStack(spacing: 8) {
-                                Button { open(message) } label: { MessageRow(message: message) }.buttonStyle(.plain)
+                                MessageRow(message: message)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { open(message) }
                                 Menu {
                                     Button { open(message) } label: { Label("Ouvrir", systemImage: "envelope.open") }
                                     if message.isTrashed {
@@ -196,8 +248,10 @@ struct MailFolderView: View {
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $search, prompt: "Rechercher dans ce dossier")
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { showCompose = true } label: { Image(systemName: "square.and.pencil") }.frame(minWidth: 44, minHeight: 44).accessibilityLabel("Nouveau message")
+            if folder.kind != "trash" {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showCompose = true } label: { Image(systemName: "square.and.pencil") }.frame(minWidth: 44, minHeight: 44).accessibilityLabel("Nouveau message")
+                }
             }
         }
         .fullScreenCover(isPresented: $showCompose) { ComposeMailView() }
@@ -235,11 +289,16 @@ private struct DeletedFolderView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \MailMessageRecord.createdAt, order: .reverse) private var allMessages: [MailMessageRecord]
     let folder: MailFolderRecord
+    @State private var selected: MailMessageRecord?
 
     private var messages: [MailMessageRecord] { allMessages.filter { $0.isTrashed && $0.previousFolderName == folder.name } }
 
     var body: some View {
-        List(messages) { message in MessageRow(message: message) }
+        List(messages) { message in
+            MessageRow(message: message)
+                .contentShape(Rectangle())
+                .onTapGesture { selected = message }
+        }
             .listStyle(.plain)
             .navigationTitle(folder.name)
             .toolbar {
@@ -247,5 +306,6 @@ private struct DeletedFolderView: View {
                     Button("Restaurer") { try? environment.store.restoreFolder(folder); dismiss() }.frame(minHeight: 44)
                 }
             }
+            .fullScreenCover(item: $selected) { message in ReadMailView(message: message) }
     }
 }

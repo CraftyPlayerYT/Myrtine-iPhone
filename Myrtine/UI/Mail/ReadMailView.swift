@@ -1,26 +1,27 @@
 import SwiftUI
+import WebKit
 
 struct ReadMailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppEnvironment.self) private var environment
     let message: MailMessageRecord
-    @State private var controller: RichTextEditorController
     @State private var composeMode: ComposeMode?
-
-    init(message: MailMessageRecord) {
-        self.message = message
-        let reader = RichTextEditorController()
-        reader.load(html: message.htmlBody, fallback: message.body)
-        _controller = State(initialValue: reader)
-    }
+    @State private var htmlIsVisible = false
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 header
                 Divider()
-                RichTextEditor(controller: controller, isEditable: false)
-                    .background(Color.white)
+                if message.htmlBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    plainTextBody
+                } else {
+                    ZStack(alignment: .topLeading) {
+                        if !htmlIsVisible { plainTextBody }
+                        MailHTMLView(html: message.htmlBody, fallback: message.body, isVisible: $htmlIsVisible)
+                            .opacity(htmlIsVisible ? 1 : 0)
+                    }
+                }
             }
             .background(Color.white.ignoresSafeArea())
             .navigationTitle(message.subject.isEmpty ? "(Sans objet)" : message.subject)
@@ -46,7 +47,11 @@ struct ReadMailView: View {
                     Button { composeMode = .reply } label: { Label("Répondre", systemImage: "arrowshape.turn.up.left") }.buttonStyle(.borderedProminent).frame(minHeight: 48)
                     Button { composeMode = .forward } label: { Label("Transférer", systemImage: "arrowshape.turn.up.right") }.buttonStyle(.bordered).frame(minHeight: 48)
                     Spacer()
-                    Button(role: .destructive) { try? environment.store.moveMessage(message, to: "Corbeille"); dismiss() } label: { Image(systemName: "trash").frame(width: 44, height: 44) }.accessibilityLabel("Supprimer")
+                    if message.isTrashed {
+                        Button { try? environment.store.restoreMessage(message); dismiss() } label: { Label("Restaurer", systemImage: "arrow.uturn.backward") }.buttonStyle(.bordered).frame(minHeight: 48)
+                    } else {
+                        Button(role: .destructive) { try? environment.store.moveMessage(message, to: "Corbeille"); dismiss() } label: { Image(systemName: "trash").frame(width: 44, height: 44) }.accessibilityLabel("Supprimer")
+                    }
                 }
                 .padding(.horizontal, 16).padding(.vertical, 8).background(.ultraThinMaterial)
             }
@@ -71,6 +76,81 @@ struct ReadMailView: View {
             Spacer()
         }
         .padding(16)
+    }
+
+    private var plainTextBody: some View {
+        ScrollView {
+            Text(message.body.isEmpty ? "Ce message ne contient aucun texte." : message.body)
+                .font(.body)
+                .foregroundStyle(.primary)
+                .textSelection(.enabled)
+                .padding(18)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Color.white)
+        .accessibilityIdentifier("mail-reader-body")
+    }
+}
+
+private struct MailHTMLView: UIViewRepresentable {
+    let html: String
+    let fallback: String
+    @Binding var isVisible: Bool
+
+    func makeUIView(context: Context) -> WKWebView {
+        let configuration = WKWebViewConfiguration()
+        configuration.defaultWebpagePreferences.allowsContentJavaScript = false
+        let view = WKWebView(frame: .zero, configuration: configuration)
+        view.isOpaque = false
+        view.backgroundColor = .clear
+        view.scrollView.backgroundColor = .clear
+        view.scrollView.alwaysBounceHorizontal = false
+        view.accessibilityIdentifier = "rich-mail-reader"
+        view.navigationDelegate = context.coordinator
+        return view
+    }
+
+    func updateUIView(_ view: WKWebView, context: Context) {
+        let source = html.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? escapedFallback : html
+        guard context.coordinator.loadedSource != source else { return }
+        context.coordinator.loadedSource = source
+        isVisible = false
+        view.loadHTMLString(document(for: source), baseURL: nil)
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(isVisible: $isVisible) }
+
+    private var escapedFallback: String {
+        fallback
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\n", with: "<br>")
+    }
+
+    private func document(for source: String) -> String {
+        """
+        <!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+        <style>
+        :root{color-scheme:light}*{box-sizing:border-box}html,body{margin:0;background:transparent;color:#171b2e;font:17px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{padding:18px;overflow-x:auto}table{border-collapse:collapse;min-width:max-content}th,td{border:1px solid #cbd5e1;padding:9px;vertical-align:top}img{height:auto;max-height:70vh}a{color:#3859c7;overflow-wrap:anywhere}pre{white-space:pre;overflow-x:auto}
+        </style></head><body>\(source)</body></html>
+        """
+    }
+
+    final class Coordinator: NSObject, WKNavigationDelegate {
+        var loadedSource = ""
+        private let isVisible: Binding<Bool>
+
+        init(isVisible: Binding<Bool>) {
+            self.isVisible = isVisible
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation?) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.isVisible.wrappedValue = true
+            }
+        }
     }
 }
 

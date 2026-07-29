@@ -167,15 +167,17 @@ final class LocalStore {
         return folder
     }
 
-    func upsertRemoteFolder(name: String, kind: String, sortOrder: Int, createdAt: Date, updatedAt: Date) throws {
+    func upsertRemoteFolder(name: String, kind: String, sortOrder: Int, createdAt: Date, updatedAt: Date, isDeleted: Bool, previousName: String) throws {
         if let existing = folder(named: name) {
             guard updatedAt > existing.updatedAt else { return }
             existing.kind = kind
             existing.sortOrder = sortOrder
             existing.updatedAt = updatedAt
             existing.systemImage = Self.systemImage(for: kind)
+            existing.isTrashed = isDeleted
+            existing.previousName = previousName
         } else {
-            context.insert(MailFolderRecord(name: name, systemImage: Self.systemImage(for: kind), kind: kind, sortOrder: sortOrder, createdAt: createdAt, updatedAt: updatedAt, isTrashed: kind == "deleted"))
+            context.insert(MailFolderRecord(name: name, systemImage: Self.systemImage(for: kind), kind: kind, sortOrder: sortOrder, createdAt: createdAt, updatedAt: updatedAt, isTrashed: isDeleted, previousName: previousName))
         }
         try save()
     }
@@ -200,6 +202,7 @@ final class LocalStore {
         let oldName = folder.name
         let containedMessages = messages(in: oldName, includeDeleted: true)
 
+        folder.previousName = oldName
         folder.name = cleanName
         folder.updatedAt = .now
         for message in containedMessages {
@@ -304,8 +307,10 @@ final class LocalStore {
             existing.body = remote.body
             existing.htmlBody = remote.htmlBody
             existing.isRead = remote.isRead
+            existing.isTrashed = remote.isDeleted
+            existing.previousFolderName = remote.previousFolderName
         } else {
-            context.insert(MailMessageRecord(id: remote.id, folderName: remote.folderName, createdAt: remote.createdAt, updatedAt: remote.updatedAt, direction: remote.direction, sender: remote.sender, recipient: remote.recipient, subject: remote.subject, body: remote.body, htmlBody: remote.htmlBody, isRead: remote.isRead))
+            context.insert(MailMessageRecord(id: remote.id, folderName: remote.folderName, previousFolderName: remote.previousFolderName, createdAt: remote.createdAt, updatedAt: remote.updatedAt, direction: remote.direction, sender: remote.sender, recipient: remote.recipient, subject: remote.subject, body: remote.body, htmlBody: remote.htmlBody, isRead: remote.isRead, isTrashed: remote.isDeleted))
         }
         try save()
     }
@@ -439,6 +444,8 @@ struct MailSnapshot: Sendable {
     let body: String
     let htmlBody: String
     let isRead: Bool
+    let isDeleted: Bool
+    let previousFolderName: String
 }
 
 enum SampleData {
