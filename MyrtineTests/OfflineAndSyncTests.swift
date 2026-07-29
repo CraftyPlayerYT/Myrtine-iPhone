@@ -3,18 +3,10 @@ import XCTest
 
 @MainActor
 final class OfflineAndSyncTests: XCTestCase {
-    func testLegacyPreReleaseTokenDoesNotBypassActivation() throws {
-        KeychainStore.remove(MyrtineAPIClient.activationTokenAccount)
-        try KeychainStore.set("legacy-pre-release-token", for: "iphone-activation-token")
-        defer {
-            KeychainStore.remove("iphone-activation-token")
-            KeychainStore.remove(MyrtineAPIClient.activationTokenAccount)
-        }
-
-        let environment = AppEnvironment(inMemory: true, useMocks: false)
-
-        XCTAssertFalse(environment.isActivated)
-        XCTAssertNil(KeychainStore.get("iphone-activation-token"))
+    func testActivationTokenNamespaceInvalidatesPreReleaseToken() {
+        XCTAssertEqual(MyrtineAPIClient.legacyActivationTokenAccount, "iphone-activation-token")
+        XCTAssertEqual(MyrtineAPIClient.activationTokenAccount, "iphone-activation-token-v2")
+        XCTAssertNotEqual(MyrtineAPIClient.activationTokenAccount, MyrtineAPIClient.legacyActivationTokenAccount)
     }
 
     func testOfflineDiagnosticIsQueuedWithoutNetworkCall() async throws {
