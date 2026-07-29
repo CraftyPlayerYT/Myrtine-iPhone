@@ -31,6 +31,24 @@ struct DiagnosticsHomeView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(MyrtineTheme.accent)
+                    TextField("Nom, e-mail, secteur…", text: $search)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    if !search.isEmpty {
+                        Button { search = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                            .accessibilityLabel("Effacer la recherche")
+                    }
+                }
+                .padding(.horizontal, 14)
+                .frame(minHeight: 50)
+                .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MyrtineTheme.accent.opacity(0.55), lineWidth: 1.5) }
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .accessibilityIdentifier("diagnostic-search")
+
                 Picker("État", selection: $scope) {
                     ForEach(Scope.allCases) { Text($0.rawValue).tag($0) }
                 }
@@ -68,7 +86,6 @@ struct DiagnosticsHomeView: View {
             }
             .myrtineScreen()
             .navigationTitle("Diagnostics")
-            .searchable(text: $search, prompt: "Nom, e-mail, secteur…")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if environment.isSyncing { ProgressView().accessibilityLabel("Synchronisation") }

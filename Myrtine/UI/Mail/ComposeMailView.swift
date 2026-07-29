@@ -118,10 +118,17 @@ struct ComposeMailView: View {
                 FormatButton(systemImage: "underline", active: controller.isUnderlined, label: "Souligné") { controller.toggleUnderline() }
                 Menu {
                     ForEach([13, 15, 17, 20, 24, 30], id: \.self) { size in Button("\(size) pt") { controller.applyFontSize(CGFloat(size)) } }
-                } label: { Label("\(Int(controller.fontSize))", systemImage: "textformat.size").frame(minWidth: 48, minHeight: 44) }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "textformat.size")
+                        Text("\(Int(controller.fontSize))").font(.caption.weight(.semibold))
+                    }
+                    .frame(minWidth: 58, minHeight: 46)
+                    .glassEffect(.regular.interactive(), in: .capsule)
+                }
                 .accessibilityLabel("Taille du texte")
-                FormatButton(systemImage: "paintbrush", active: false, label: "Couleur du texte") { showTextColor = true }
-                FormatButton(systemImage: "highlighter", active: false, label: "Surlignage") { showHighlightColor = true }
+                FormatButton(systemImage: "paintbrush.fill", active: false, label: "Couleur du texte", swatch: Color(uiColor: controller.textColor)) { showTextColor = true }
+                FormatButton(systemImage: "highlighter", active: false, label: "Surlignage", swatch: Color(uiColor: controller.highlightColor)) { showHighlightColor = true }
                 FormatButton(systemImage: "link", active: false, label: "Insérer un lien") { showLinkPrompt = true }
                 FormatButton(systemImage: "photo", active: false, label: "Insérer une image") { showImageImporter = true }
                 FormatButton(systemImage: "paperclip", active: false, label: "Joindre un document") { showDocumentImporter = true }
@@ -244,9 +251,27 @@ private struct FormatButton: View {
     let systemImage: String
     let active: Bool
     let label: String
+    var swatch: Color? = nil
     let action: () -> Void
     var body: some View {
-        Button(action: action) { Image(systemName: systemImage).frame(width: 44, height: 44).background(active ? MyrtineTheme.accent.opacity(0.14) : .clear, in: RoundedRectangle(cornerRadius: 10)) }
+        Button(action: action) {
+            ZStack(alignment: .bottomTrailing) {
+                Image(systemName: systemImage)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(active ? Color.white : MyrtineTheme.ink)
+                    .frame(width: 46, height: 46)
+                if let swatch {
+                    Circle()
+                        .fill(swatch)
+                        .frame(width: 13, height: 13)
+                        .overlay { Circle().stroke(.white, lineWidth: 2) }
+                        .offset(x: 1, y: 1)
+                }
+            }
+            .glassEffect(active ? .regular.tint(MyrtineTheme.accent).interactive() : .regular.interactive(), in: .circle)
+        }
+        .buttonStyle(.plain)
+        .contentShape(Circle())
             .accessibilityLabel(label)
             .accessibilityAddTraits(active ? .isSelected : [])
     }

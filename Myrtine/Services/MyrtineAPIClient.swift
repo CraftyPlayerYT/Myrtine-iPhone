@@ -3,9 +3,9 @@ import Foundation
 @MainActor
 final class MyrtineAPIClient {
     static let serverURL = URL(string: "https://serveur.myrtine.fr")!
-    static let appToken = "myrtine-gestion-desktop-v1"
     static let senderAddress = "contact@myrtine.fr"
-    static let perplexityKeyAccount = "perplexity-api-key"
+    static let activationTokenAccount = "iphone-activation-token"
+    private static let installationIDKey = "myrtine-installation-id"
 
     enum SimulationFailure: String, CaseIterable, Identifiable {
         case none = "Aucune"
@@ -28,6 +28,17 @@ final class MyrtineAPIClient {
     private let useMocks: Bool
     var simulatedFailure: SimulationFailure = .none
 
+    var isActivated: Bool {
+        useMocks || !(KeychainStore.get(Self.activationTokenAccount) ?? "").isEmpty
+    }
+
+    var installationID: String {
+        if let existing = UserDefaults.standard.string(forKey: Self.installationIDKey), !existing.isEmpty { return existing }
+        let created = UUID().uuidString.lowercased()
+        UserDefaults.standard.set(created, forKey: Self.installationIDKey)
+        return created
+    }
+
     init(network: NetworkMonitor, store: LocalStore, useMocks: Bool) {
         self.network = network
         self.store = store
@@ -48,24 +59,24 @@ final class MyrtineAPIClient {
             return DiagnosticResult(markdown: SampleData.diagnosticMarkdown, provider: "Simulation", model: "sonar-pro-mock", primaryError: nil)
         }
 
-        var directError: String?
-        if let key = KeychainStore.get(Self.perplexityKeyAccount), !key.isEmpty {
-            do {
-                if simulatedFailure == .perplexity { throw APIError.simulated }
-                return try await generateDirectlyWithPerplexity(diagnostic, apiKey: key)
-            } catch {
-                directError = error.localizedDescription
-                store.log(level: "Avertissement", category: "IA", message: "Perplexity direct indisponible, repli sur le serveur", detail: error.localizedDescription)
-            }
-        }
-
         if simulatedFailure == .server { throw APIError.simulated }
-        var result = try await generateThroughServer(diagnostic)
-        if result.primaryError == nil { result = DiagnosticResult(markdown: result.markdown, provider: result.provider, model: result.model, primaryError: directError) }
-        return result
+        return try await generateThroughServer(diagnostic)
     }
 
-    func sendEmail(to email: String, subject: String, plainText: String, html: String, attachments: [MailAttachmentPayload]) async throws {
+    func activate(code: String, deviceName: String) async throws {
+        guard network.isOnline else { throw APIError.offline }
+        if useMocks {
+            guard !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw APIError.server("Le code est requis.") }
+            try KeychainStore.set("mock-device-token", for: Self.activationTokenAccount)
+            return
+        }
+        let payload = ActivationPayload(action: "activate_device", code: code, installationID: installationID, deviceName: deviceName)
+        let response: ActivationResponse = try await postServer(payload, requiresActivation: false)
+        guard response.state == "appareil_active", !response.token.isEmpty else { throw APIError.server(response.message ?? response.state) }
+        try KeychainStore.set(response.token, for: Self.activationTokenAccount)
+    }
+
+    func sendEmail(messageID: String, to email: String, subject: String, plainText: String, html: String, attachments: [MailAttachmentPayload]) async throws {
         guard network.isOnline else { throw APIError.offline }
         if useMocks {
             try await Task.sleep(for: .milliseconds(450))
@@ -74,7 +85,7 @@ final class MyrtineAPIClient {
             return
         }
 
-        let payload = EmailPayload(action: "envoyer_email", email: email, subject: subject, message: plainText, htmlMessage: html, attachments: attachments)
+        let payload = EmailPayload(action: "envoyer_email", messageID: messageID, email: email, subject: subject, message: plainText, htmlMessage: html, attachments: attachments)
         let response: ServerResponse = try await postServer(payload)
         guard response.state == "email_envoye" || response.state == "recue" else {
             throw APIError.server(response.message ?? response.state)
@@ -100,28 +111,11 @@ final class MyrtineAPIClient {
         return response.count ?? 0
     }
 
-    private func generateDirectlyWithPerplexity(_ diagnostic: DiagnosticRecord, apiKey: String) async throws -> DiagnosticResult {
-        var request = URLRequest(url: URL(string: "https://api.perplexity.ai/v1/sonar")!)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(PerplexityRequest(
-            model: "sonar-pro",
-            messages: [
-                .init(role: "system", content: PromptBuilder.systemPrompt),
-                .init(role: "user", content: PromptBuilder.userPrompt(for: diagnostic))
-            ],
-            maxTokens: 12_000,
-            temperature: 0.1,
-            searchMode: "web"
-        ))
-        let (data, response) = try await session.data(for: request)
-        try validate(response: response, data: data)
-        let decoded = try JSONDecoder().decode(OpenAIResponse.self, from: data)
-        guard let markdown = decoded.choices.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines), !markdown.isEmpty else {
-            throw APIError.invalidResponse
-        }
-        return DiagnosticResult(markdown: markdown, provider: "Perplexity", model: decoded.model ?? "sonar-pro", primaryError: nil)
+    func registerPushToken(_ token: String, environment: String) async throws {
+        guard network.isOnline else { throw APIError.offline }
+        if useMocks { return }
+        let response: ServerResponse = try await postServer(PushTokenPayload(action: "register_push", token: token, environment: environment))
+        guard response.state == "push_enregistre" else { throw APIError.server(response.message ?? response.state) }
     }
 
     private func generateThroughServer(_ diagnostic: DiagnosticRecord) async throws -> DiagnosticResult {
@@ -133,13 +127,15 @@ final class MyrtineAPIClient {
         return DiagnosticResult(markdown: markdown, provider: response.aiProvider ?? "Serveur Myrtine", model: response.aiModel ?? "", primaryError: response.primaryProviderError)
     }
 
-    private func postServer<Body: Encodable, Response: Decodable>(_ body: Body) async throws -> Response {
+    func postServer<Body: Encodable, Response: Decodable>(_ body: Body, requiresActivation: Bool = true) async throws -> Response {
         var request = URLRequest(url: Self.serverURL.appending(path: "diagnostic-flash"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        // Le serveur utilise ce contrat pour toutes les applications d'administration.
-        request.setValue("desktop-app", forHTTPHeaderField: "X-Myrtine-Source")
-        request.setValue(Self.appToken, forHTTPHeaderField: "X-Myrtine-App-Token")
+        request.setValue("iphone-app", forHTTPHeaderField: "X-Myrtine-Source")
+        if requiresActivation {
+            guard let token = KeychainStore.get(Self.activationTokenAccount), !token.isEmpty else { throw APIError.activationRequired }
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
         request.httpBody = try JSONEncoder.myrtine.encode(body)
         let (data, response) = try await session.data(for: request)
         try validate(response: response, data: data)
@@ -223,6 +219,7 @@ private struct DiagnosticPayload: Encodable {
 
 private struct EmailPayload: Encodable {
     let action: String
+    let messageID: String
     let email: String
     let subject: String
     let message: String
@@ -230,6 +227,7 @@ private struct EmailPayload: Encodable {
     let attachments: [MailAttachmentPayload]
     enum CodingKeys: String, CodingKey {
         case action, email, attachments
+        case messageID = "message_id"
         case subject = "sujet"
         case message
         case htmlMessage = "html_message"
@@ -254,6 +252,36 @@ private struct ResultEmailPayload: Encodable {
 
 private struct ActionPayload: Encodable { let action: String }
 
+private struct PushTokenPayload: Encodable {
+    let action: String
+    let token: String
+    let environment: String
+    enum CodingKeys: String, CodingKey {
+        case action
+        case token = "apns_token"
+        case environment = "apns_environment"
+    }
+}
+
+private struct ActivationPayload: Encodable {
+    let action: String
+    let code: String
+    let installationID: String
+    let deviceName: String
+    enum CodingKeys: String, CodingKey {
+        case action, code
+        case installationID = "installation_id"
+        case deviceName = "device_name"
+    }
+}
+
+private struct ActivationResponse: Decodable {
+    let state: String
+    let token: String
+    let message: String?
+    enum CodingKeys: String, CodingKey { case state = "etat_de_la_requete", token, message }
+}
+
 private struct ServerResponse: Decodable {
     let state: String
     let message: String?
@@ -275,31 +303,9 @@ private struct ServerResponse: Decodable {
     }
 }
 
-private struct PerplexityRequest: Encodable {
-    struct Message: Encodable { let role: String; let content: String }
-    let model: String
-    let messages: [Message]
-    let maxTokens: Int
-    let temperature: Double
-    let searchMode: String
-    enum CodingKeys: String, CodingKey {
-        case model, messages, temperature
-        case maxTokens = "max_tokens"
-        case searchMode = "search_mode"
-    }
-}
-
-private struct OpenAIResponse: Decodable {
-    struct Choice: Decodable {
-        struct Message: Decodable { let content: String }
-        let message: Message
-    }
-    let model: String?
-    let choices: [Choice]
-}
-
 enum APIError: LocalizedError {
     case offline
+    case activationRequired
     case simulated
     case invalidResponse
     case http(Int, String)
@@ -308,6 +314,7 @@ enum APIError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .offline: "Vous êtes hors ligne. L'action a été conservée et reprendra dès que la connexion reviendra."
+        case .activationRequired: "Cette installation doit être activée avant d'utiliser les services Myrtine."
         case .simulated: "Erreur simulée pour vérifier le comportement de l'application."
         case .invalidResponse: "La réponse du service est invalide."
         case let .http(code, detail): "Le service a répondu HTTP \(code) : \(detail)"
@@ -356,7 +363,16 @@ extension JSONEncoder {
 extension JSONDecoder {
     static var myrtine: JSONDecoder {
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let value = try container.decode(String.self)
+            let fractional = ISO8601DateFormatter()
+            fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = fractional.date(from: value) { return date }
+            let regular = ISO8601DateFormatter()
+            if let date = regular.date(from: value) { return date }
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Date ISO 8601 invalide: \(value)")
+        }
         return decoder
     }
 }

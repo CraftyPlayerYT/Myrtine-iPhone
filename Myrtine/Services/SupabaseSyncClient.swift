@@ -2,104 +2,72 @@ import Foundation
 
 @MainActor
 final class SupabaseSyncClient {
-    private static let baseURL = URL(string: "https://jfwpcephqoebjrcwsxbk.supabase.co/rest/v1")!
-    private static let publishableKey = "sb_publishable_AUoaW8ZwVnh-VXuZGuoy3g_f355SCB_"
-
     private let network: NetworkMonitor
     private let store: LocalStore
-    private let session: URLSession
+    private let api: MyrtineAPIClient
     private let useMocks: Bool
 
-    init(network: NetworkMonitor, store: LocalStore, useMocks: Bool) {
+    init(network: NetworkMonitor, store: LocalStore, api: MyrtineAPIClient, useMocks: Bool) {
         self.network = network
         self.store = store
+        self.api = api
         self.useMocks = useMocks
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = 30
-        configuration.waitsForConnectivity = false
-        session = URLSession(configuration: configuration)
     }
 
     func pullAll() async throws {
         guard network.isOnline else { throw APIError.offline }
         if useMocks { return }
-        async let diagnostics: [RemoteDiagnostic] = get("diagnostics?select=*")
-        async let clients: [RemoteClient] = get("clients?select=*")
-        async let folders: [RemoteFolder] = get("mail_folders?select=name,kind,sort_order,created_at,updated_at")
-        async let messages: [RemoteMail] = get("mail_messages?select=*")
-
-        let downloadedDiagnostics = try await diagnostics
-        for row in downloadedDiagnostics { try store.upsertRemoteDiagnostic(row.snapshot) }
-        let downloadedClients = try await clients
-        for row in downloadedClients { try store.upsertClient(row.snapshot) }
-        let downloadedFolders = try await folders
-        for row in downloadedFolders {
-            try store.upsertRemoteFolder(name: row.name, kind: row.kind, sortOrder: row.sortOrder, createdAt: row.createdAt, updatedAt: row.updatedAt)
+        let snapshot: SyncSnapshotResponse = try await api.postServer(ActionRequest(action: "sync_snapshot"))
+        for row in snapshot.diagnostics { try store.upsertRemoteDiagnostic(row.snapshot) }
+        for row in snapshot.clients { try store.upsertClient(row.snapshot) }
+        for row in snapshot.folders {
+            try store.upsertRemoteFolder(name: row.name, kind: row.kind, sortOrder: row.sortOrder, createdAt: row.createdAt, updatedAt: row.updatedAt, isDeleted: row.isDeleted, previousName: row.previousName ?? "")
         }
-        let downloadedMessages = try await messages
-        for row in downloadedMessages { try store.upsertRemoteMessage(row.snapshot) }
+        for row in snapshot.messages { try store.upsertRemoteMessage(row.snapshot) }
     }
 
     func pushDiagnostic(_ diagnostic: DiagnosticRecord) async throws {
-        try await upsert(path: "diagnostics?on_conflict=id", body: [RemoteDiagnostic(diagnostic)])
+        let _: BasicResponse = try await api.postServer(RecordRequest(action: "upsert_diagnostic", record: RemoteDiagnostic(diagnostic)))
         diagnostic.syncRequired = false
         try store.save()
     }
 
     func pushClient(_ client: ClientRecord) async throws {
-        try await upsert(path: "clients?on_conflict=email", body: [RemoteClient(client)])
+        _ = client
     }
 
     func pushFolder(_ folder: MailFolderRecord) async throws {
-        try await upsert(path: "mail_folders?on_conflict=name", body: [RemoteFolder(folder)])
+        let _: BasicResponse = try await api.postServer(RecordRequest(action: "upsert_folder", record: RemoteFolder(folder)))
+        if !folder.isTrashed {
+            folder.previousName = ""
+            try store.save()
+        }
     }
 
     func pushMessage(_ message: MailMessageRecord) async throws {
-        try await upsert(path: "mail_messages?on_conflict=id", body: [RemoteMail(message)])
+        let _: BasicResponse = try await api.postServer(RecordRequest(action: "upsert_message", record: RemoteMail(message)))
         message.syncRequired = false
         try store.save()
     }
 
     func deleteMessage(id: String) async throws {
-        var request = makeRequest(path: "mail_messages?id=eq.\(id.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? id)", method: "DELETE")
-        request.setValue("return=minimal", forHTTPHeaderField: "Prefer")
-        let (data, response) = try await session.data(for: request)
-        try validate(response, data: data)
+        let _: BasicResponse = try await api.postServer(DeleteRequest(action: "delete_message", id: id))
     }
+}
 
-    private func get<Response: Decodable>(_ path: String) async throws -> Response {
-        let request = makeRequest(path: path, method: "GET")
-        let (data, response) = try await session.data(for: request)
-        try validate(response, data: data)
-        return try JSONDecoder.supabase.decode(Response.self, from: data)
-    }
-
-    private func upsert<Body: Encodable>(path: String, body: Body) async throws {
-        guard network.isOnline else { throw APIError.offline }
-        if useMocks { return }
-        var request = makeRequest(path: path, method: "POST")
-        request.setValue("resolution=merge-duplicates,return=minimal", forHTTPHeaderField: "Prefer")
-        request.httpBody = try JSONEncoder.myrtine.encode(body)
-        let (data, response) = try await session.data(for: request)
-        try validate(response, data: data)
-    }
-
-    private func makeRequest(path: String, method: String) -> URLRequest {
-        let url = URL(string: Self.baseURL.absoluteString + "/" + path)!
-        var request = URLRequest(url: url)
-        request.httpMethod = method
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(Self.publishableKey, forHTTPHeaderField: "apikey")
-        request.setValue("Bearer \(Self.publishableKey)", forHTTPHeaderField: "Authorization")
-        request.setValue(MyrtineAPIClient.appToken, forHTTPHeaderField: "X-Myrtine-App-Token")
-        return request
-    }
-
-    private func validate(_ response: URLResponse, data: Data) throws {
-        guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
-        guard (200..<300).contains(http.statusCode) else {
-            throw APIError.http(http.statusCode, String(data: data, encoding: .utf8) ?? "Réponse Supabase vide")
-        }
+private struct ActionRequest: Encodable { let action: String }
+private struct DeleteRequest: Encodable { let action: String; let id: String }
+private struct RecordRequest<Record: Encodable>: Encodable { let action: String; let record: Record }
+private struct BasicResponse: Decodable { let state: String; enum CodingKeys: String, CodingKey { case state = "etat_de_la_requete" } }
+private struct SyncSnapshotResponse: Decodable {
+    let diagnostics: [RemoteDiagnostic]
+    let clients: [RemoteClient]
+    let folders: [RemoteFolder]
+    let messages: [RemoteMail]
+    enum CodingKeys: String, CodingKey {
+        case diagnostics, clients
+        case folders = "mail_folders"
+        case messages = "mail_messages"
     }
 }
 
@@ -194,11 +162,13 @@ private struct RemoteFolder: Codable {
     let sortOrder: Int
     let createdAt: Date
     let updatedAt: Date
+    let isDeleted: Bool
+    let previousName: String?
 
     init(_ value: MailFolderRecord) {
-        name = value.name; kind = value.isTrashed ? "deleted" : value.kind; sortOrder = value.sortOrder; createdAt = value.createdAt; updatedAt = value.updatedAt
+        name = value.name; kind = value.kind; sortOrder = value.sortOrder; createdAt = value.createdAt; updatedAt = value.updatedAt; isDeleted = value.isTrashed; previousName = value.previousName.isEmpty ? nil : value.previousName
     }
-    enum CodingKeys: String, CodingKey { case name, kind; case sortOrder = "sort_order", createdAt = "created_at", updatedAt = "updated_at" }
+    enum CodingKeys: String, CodingKey { case name, kind; case sortOrder = "sort_order", createdAt = "created_at", updatedAt = "updated_at", isDeleted = "is_deleted", previousName = "previous_name" }
 }
 
 private struct RemoteMail: Codable {
@@ -213,14 +183,16 @@ private struct RemoteMail: Codable {
     let body: String
     let htmlBody: String?
     let isRead: Bool
+    let isDeleted: Bool
+    let previousFolderName: String?
 
     init(_ value: MailMessageRecord) {
-        id = value.id; folderName = value.folderName; createdAt = value.createdAt; updatedAt = value.updatedAt; direction = value.direction; sender = value.sender; recipient = value.recipient; subject = value.subject; body = value.body; htmlBody = value.htmlBody; isRead = value.isRead
+        id = value.id; folderName = value.folderName; createdAt = value.createdAt; updatedAt = value.updatedAt; direction = value.direction; sender = value.sender; recipient = value.recipient; subject = value.subject; body = value.body; htmlBody = value.htmlBody; isRead = value.isRead; isDeleted = value.isTrashed; previousFolderName = value.previousFolderName.isEmpty ? nil : value.previousFolderName
     }
-    var snapshot: MailSnapshot { MailSnapshot(id: id, folderName: folderName, createdAt: createdAt, updatedAt: updatedAt, direction: direction, sender: sender, recipient: recipient, subject: subject, body: body, htmlBody: htmlBody ?? "", isRead: isRead) }
+    var snapshot: MailSnapshot { MailSnapshot(id: id, folderName: folderName, createdAt: createdAt, updatedAt: updatedAt, direction: direction, sender: sender, recipient: recipient, subject: subject, body: body, htmlBody: htmlBody ?? "", isRead: isRead, isDeleted: isDeleted, previousFolderName: previousFolderName ?? "") }
     enum CodingKeys: String, CodingKey {
         case id, direction, sender, recipient, subject, body
-        case folderName = "folder_name", createdAt = "created_at", updatedAt = "updated_at", htmlBody = "html_body", isRead = "is_read"
+        case folderName = "folder_name", createdAt = "created_at", updatedAt = "updated_at", htmlBody = "html_body", isRead = "is_read", isDeleted = "is_deleted", previousFolderName = "previous_folder_name"
     }
 }
 

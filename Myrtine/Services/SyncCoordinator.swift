@@ -115,12 +115,11 @@ final class SyncCoordinator {
     }
 
     private func performEmail(_ message: MailMessageRecord, attachments: [MailAttachmentPayload]) async throws {
-        try await api.sendEmail(to: message.recipient, subject: message.subject, plainText: message.body, html: message.htmlBody, attachments: attachments)
+        try await api.sendEmail(messageID: message.id, to: message.recipient, subject: message.subject, plainText: message.body, html: message.htmlBody, attachments: attachments)
         message.folderName = "Éléments envoyés"
         message.isRead = true
-        message.syncRequired = true
+        message.syncRequired = false
         message.updatedAt = .now
         try store.save()
-        try await supabase.pushMessage(message)
     }
 }
