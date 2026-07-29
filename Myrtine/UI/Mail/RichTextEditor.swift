@@ -13,6 +13,7 @@ final class RichTextEditorController {
     var textColor = UIColor.label
     var highlightColor = UIColor.yellow
     var fontSize: CGFloat = 17
+    var formattingRevision = 0
 
     static let defaultAttributes: [NSAttributedString.Key: Any] = [
         .font: UIFont.preferredFont(forTextStyle: .body),
@@ -21,9 +22,9 @@ final class RichTextEditorController {
 
     var plainText: String { attributedText.string }
 
-    var isBold: Bool { currentFont.fontDescriptor.symbolicTraits.contains(.traitBold) }
-    var isItalic: Bool { currentFont.fontDescriptor.symbolicTraits.contains(.traitItalic) }
-    var isUnderlined: Bool { ((currentAttributes[.underlineStyle] as? Int) ?? 0) != 0 }
+    var isBold: Bool { _ = formattingRevision; return currentFont.fontDescriptor.symbolicTraits.contains(.traitBold) }
+    var isItalic: Bool { _ = formattingRevision; return currentFont.fontDescriptor.symbolicTraits.contains(.traitItalic) }
+    var isUnderlined: Bool { _ = formattingRevision; return ((currentAttributes[.underlineStyle] as? Int) ?? 0) != 0 }
 
     private var currentAttributes: [NSAttributedString.Key: Any] {
         guard let view = textView else { return Self.defaultAttributes }
@@ -133,6 +134,7 @@ final class RichTextEditorController {
             if let descriptor = baseFont.fontDescriptor.withSymbolicTraits(traits) {
                 view.typingAttributes[.font] = UIFont(descriptor: descriptor, size: baseFont.pointSize)
             }
+            formattingRevision += 1
             return
         }
         view.textStorage.enumerateAttribute(.font, in: range) { value, subrange, _ in
@@ -144,6 +146,7 @@ final class RichTextEditorController {
             }
         }
         synchronize(from: view)
+        formattingRevision += 1
     }
 
     private func applyAttribute(_ key: NSAttributedString.Key, transform: (Any?) -> Any) {
@@ -157,6 +160,7 @@ final class RichTextEditorController {
             }
             synchronize(from: view)
         }
+        formattingRevision += 1
     }
 
     enum EditorError: LocalizedError {
