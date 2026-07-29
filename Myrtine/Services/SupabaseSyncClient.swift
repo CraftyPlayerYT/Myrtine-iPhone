@@ -123,7 +123,7 @@ private struct RemoteDiagnostic: Codable {
     }
 
     var snapshot: DiagnosticSnapshot {
-        DiagnosticSnapshot(id: id, createdAt: createdAt, updatedAt: updatedAt, deletedAt: deletedAt, state: status, projectObject: projectObject, projectOwner: projectOwner, sector: sector, location: location, workforce: workforce, revenue: revenue, budget: budget, schedule: schedule, expenses: (try? JSONDecoder().decode([String].self, from: Data(expensesJSON.utf8))) ?? [], lastName: lastName, firstName: firstName, email: email, phone: phone, resultMarkdown: resultMarkdown ?? "", lastError: lastError ?? "", isDeleted: isDeleted, isRead: isRead)
+        DiagnosticSnapshot(id: id, createdAt: createdAt, updatedAt: updatedAt, deletedAt: deletedAt, state: status, projectObject: projectObject, projectOwner: projectOwner, sector: sector, location: location, workforce: workforce, revenue: revenue, budget: budget, schedule: schedule, expenses: (try? JSONDecoder().decode([String].self, from: Data(expensesJSON.utf8))) ?? [], lastName: lastName, firstName: firstName, email: email, phone: phone, resultMarkdown: resultMarkdown ?? "", lastError: lastError ?? "", isDeleted: isDeleted ?? false, isRead: isRead)
     }
 
     enum CodingKeys: String, CodingKey {
