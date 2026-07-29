@@ -6,14 +6,29 @@ struct ReadMailView: View {
     @Environment(AppEnvironment.self) private var environment
     let message: MailMessageRecord
     @State private var composeMode: ComposeMode?
+    @State private var htmlIsVisible = false
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 header
                 Divider()
-                MailHTMLView(html: message.htmlBody, fallback: message.body)
-                    .background(Color.white)
+                ZStack(alignment: .topLeading) {
+                    if !htmlIsVisible {
+                        ScrollView([.horizontal, .vertical]) {
+                            Text(message.body.isEmpty ? "Ce message ne contient aucun texte." : message.body)
+                                .font(.body)
+                                .foregroundStyle(.primary)
+                                .textSelection(.enabled)
+                                .padding(18)
+                                .frame(maxWidth: .infinity, alignment: .topLeading)
+                        }
+                        .accessibilityIdentifier("mail-reader-fallback")
+                    }
+                    MailHTMLView(html: message.htmlBody, fallback: message.body, isVisible: $htmlIsVisible)
+                        .opacity(htmlIsVisible ? 1 : 0)
+                }
+                .background(Color.white)
             }
             .background(Color.white.ignoresSafeArea())
             .navigationTitle(message.subject.isEmpty ? "(Sans objet)" : message.subject)
@@ -74,6 +89,7 @@ struct ReadMailView: View {
 private struct MailHTMLView: UIViewRepresentable {
     let html: String
     let fallback: String
+    @Binding var isVisible: Bool
 
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -84,6 +100,7 @@ private struct MailHTMLView: UIViewRepresentable {
         view.scrollView.backgroundColor = .clear
         view.scrollView.alwaysBounceHorizontal = false
         view.accessibilityIdentifier = "rich-mail-reader"
+        view.navigationDelegate = context.coordinator
         return view
     }
 
@@ -91,10 +108,11 @@ private struct MailHTMLView: UIViewRepresentable {
         let source = html.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? escapedFallback : html
         guard context.coordinator.loadedSource != source else { return }
         context.coordinator.loadedSource = source
+        isVisible = false
         view.loadHTMLString(document(for: source), baseURL: nil)
     }
 
-    func makeCoordinator() -> Coordinator { Coordinator() }
+    func makeCoordinator() -> Coordinator { Coordinator(isVisible: $isVisible) }
 
     private var escapedFallback: String {
         fallback
@@ -113,7 +131,20 @@ private struct MailHTMLView: UIViewRepresentable {
         """
     }
 
-    final class Coordinator { var loadedSource = "" }
+    final class Coordinator: NSObject, WKNavigationDelegate {
+        var loadedSource = ""
+        private let isVisible: Binding<Bool>
+
+        init(isVisible: Binding<Bool>) {
+            self.isVisible = isVisible
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation?) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.isVisible.wrappedValue = true
+            }
+        }
+    }
 }
 
 private enum ComposeMode: String, Identifiable {

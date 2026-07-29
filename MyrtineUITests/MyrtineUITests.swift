@@ -1,5 +1,6 @@
 import XCTest
 
+@MainActor
 final class MyrtineUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -158,7 +159,7 @@ final class MyrtineUITests: XCTestCase {
     func testTrashDoesNotOfferMessageComposition() throws {
         app.tabBars.buttons["Messagerie"].tap()
         XCTAssertTrue(app.staticTexts["Corbeille"].waitForExistence(timeout: 5))
-        app.staticTexts["Corbeille"].tap()
+        app.descendants(matching: .any)["mail-folder-trash"].tap()
         XCTAssertTrue(app.navigationBars["Corbeille"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Nouveau message"].exists)
         capture("52-corbeille-sans-composition")

@@ -67,7 +67,6 @@ final class MyrtineAPIClient {
         guard network.isOnline else { throw APIError.offline }
         if useMocks {
             guard !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw APIError.server("Le code est requis.") }
-            try KeychainStore.set("mock-device-token", for: Self.activationTokenAccount)
             return
         }
         let payload = ActivationPayload(action: "activate_device", code: code, installationID: installationID, deviceName: deviceName)

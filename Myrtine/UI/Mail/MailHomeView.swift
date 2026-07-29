@@ -26,6 +26,7 @@ struct MailHomeView: View {
                         NavigationLink(value: folder.name) {
                             FolderRow(folder: folder, count: messageCount(folder), unread: unreadCount(folder))
                         }
+                        .accessibilityIdentifier("mail-folder-\(folder.kind)")
                         .contextMenu {
                             if folder.kind == "custom" {
                                 Button { beginRename(folder) } label: { Label("Renommer", systemImage: "pencil") }
@@ -169,7 +170,6 @@ private struct FolderRow: View {
             else if count > 0 { Text("\(count)").font(.caption).foregroundStyle(.secondary) }
         }
         .frame(minHeight: 48)
-        .accessibilityElement(children: .combine)
     }
 }
 

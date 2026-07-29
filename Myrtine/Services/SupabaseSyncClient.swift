@@ -27,6 +27,11 @@ final class SupabaseSyncClient {
     }
 
     func pushDiagnostic(_ diagnostic: DiagnosticRecord) async throws {
+        if useMocks {
+            diagnostic.syncRequired = false
+            try store.save()
+            return
+        }
         let _: BasicResponse = try await api.postServer(RecordRequest(action: "upsert_diagnostic", record: RemoteDiagnostic(diagnostic)))
         diagnostic.syncRequired = false
         try store.save()
@@ -37,6 +42,11 @@ final class SupabaseSyncClient {
     }
 
     func pushFolder(_ folder: MailFolderRecord) async throws {
+        if useMocks {
+            if !folder.isTrashed { folder.previousName = "" }
+            try store.save()
+            return
+        }
         let _: BasicResponse = try await api.postServer(RecordRequest(action: "upsert_folder", record: RemoteFolder(folder)))
         if !folder.isTrashed {
             folder.previousName = ""
@@ -45,12 +55,18 @@ final class SupabaseSyncClient {
     }
 
     func pushMessage(_ message: MailMessageRecord) async throws {
+        if useMocks {
+            message.syncRequired = false
+            try store.save()
+            return
+        }
         let _: BasicResponse = try await api.postServer(RecordRequest(action: "upsert_message", record: RemoteMail(message)))
         message.syncRequired = false
         try store.save()
     }
 
     func deleteMessage(id: String) async throws {
+        if useMocks { return }
         let _: BasicResponse = try await api.postServer(DeleteRequest(action: "delete_message", id: id))
     }
 }
