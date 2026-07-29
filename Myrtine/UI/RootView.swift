@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct RootView: View {
     @Environment(AppEnvironment.self) private var environment
@@ -118,15 +119,7 @@ private struct ActivationView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Code d’accès")
                             .font(.subheadline.weight(.semibold))
-                        TextField("000000-000000-000000", text: Binding(
-                            get: { code },
-                            set: { code = ActivationCodeFormatter.format($0) }
-                        ))
-                            .keyboardType(.numberPad)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .textContentType(.oneTimeCode)
-                            .font(.title3.monospaced())
+                        ActivationCodeTextField(text: $code)
                             .padding(.horizontal, 16)
                             .frame(minHeight: 56)
                             .background(.white.opacity(0.76), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -191,6 +184,60 @@ enum ActivationCodeFormatter {
 
     static func isComplete(_ value: String) -> Bool {
         format(value).count == digitCount + 2
+    }
+}
+
+private struct ActivationCodeTextField: UIViewRepresentable {
+    @Binding var text: String
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    func makeUIView(context: Context) -> UITextField {
+        let field = UITextField()
+        field.delegate = context.coordinator
+        field.keyboardType = .numberPad
+        field.textContentType = .oneTimeCode
+        field.autocorrectionType = .no
+        field.autocapitalizationType = .none
+        field.placeholder = "000000-000000-000000"
+        field.font = UIFont.monospacedSystemFont(ofSize: 20, weight: .regular)
+        field.adjustsFontForContentSizeCategory = true
+        field.accessibilityIdentifier = "activation-code"
+        return field
+    }
+
+    func updateUIView(_ uiView: UITextField, context: Context) {
+        context.coordinator.parent = self
+        if uiView.text != text {
+            uiView.text = text
+        }
+    }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        var parent: ActivationCodeTextField
+
+        init(_ parent: ActivationCodeTextField) {
+            self.parent = parent
+        }
+
+        func textField(
+            _ textField: UITextField,
+            shouldChangeCharactersIn range: NSRange,
+            replacementString string: String
+        ) -> Bool {
+            guard let current = textField.text,
+                  let swiftRange = Range(range, in: current) else {
+                return false
+            }
+
+            let replacement = current.replacingCharacters(in: swiftRange, with: string)
+            let formatted = ActivationCodeFormatter.format(replacement)
+            textField.text = formatted
+            parent.text = formatted
+            return false
+        }
     }
 }
 
