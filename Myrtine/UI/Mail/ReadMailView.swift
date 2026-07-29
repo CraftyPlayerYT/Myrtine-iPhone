@@ -13,22 +13,15 @@ struct ReadMailView: View {
             VStack(spacing: 0) {
                 header
                 Divider()
-                ZStack(alignment: .topLeading) {
-                    if !htmlIsVisible {
-                        ScrollView([.horizontal, .vertical]) {
-                            Text(message.body.isEmpty ? "Ce message ne contient aucun texte." : message.body)
-                                .font(.body)
-                                .foregroundStyle(.primary)
-                                .textSelection(.enabled)
-                                .padding(18)
-                                .frame(maxWidth: .infinity, alignment: .topLeading)
-                        }
-                        .accessibilityIdentifier("mail-reader-fallback")
+                if message.htmlBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    plainTextBody
+                } else {
+                    ZStack(alignment: .topLeading) {
+                        if !htmlIsVisible { plainTextBody }
+                        MailHTMLView(html: message.htmlBody, fallback: message.body, isVisible: $htmlIsVisible)
+                            .opacity(htmlIsVisible ? 1 : 0)
                     }
-                    MailHTMLView(html: message.htmlBody, fallback: message.body, isVisible: $htmlIsVisible)
-                        .opacity(htmlIsVisible ? 1 : 0)
                 }
-                .background(Color.white)
             }
             .background(Color.white.ignoresSafeArea())
             .navigationTitle(message.subject.isEmpty ? "(Sans objet)" : message.subject)
@@ -83,6 +76,20 @@ struct ReadMailView: View {
             Spacer()
         }
         .padding(16)
+    }
+
+    private var plainTextBody: some View {
+        ScrollView {
+            Text(message.body.isEmpty ? "Ce message ne contient aucun texte." : message.body)
+                .font(.body)
+                .foregroundStyle(.primary)
+                .textSelection(.enabled)
+                .padding(18)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Color.white)
+        .accessibilityIdentifier("mail-reader-body")
     }
 }
 

@@ -49,6 +49,7 @@ final class MyrtineUITests: XCTestCase {
 
         app.staticTexts["Informations complémentaires"].tap()
         XCTAssertTrue(app.navigationBars["Informations complémentaires"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Bonjour, je vous joins les précisions demandées concernant notre projet."].waitForExistence(timeout: 5))
         capture("07-lecture-message")
 
         app.buttons["Fermer"].tap()
