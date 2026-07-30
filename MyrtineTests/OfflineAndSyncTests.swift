@@ -3,6 +3,19 @@ import XCTest
 
 @MainActor
 final class OfflineAndSyncTests: XCTestCase {
+    func testActivationTokenCanBePersistedOnSimulator() throws {
+        #if targetEnvironment(simulator)
+        let account = "activation-test-\(UUID().uuidString)"
+        defer { KeychainStore.remove(account) }
+
+        try KeychainStore.set("verified-token", for: account)
+
+        XCTAssertEqual(KeychainStore.get(account), "verified-token")
+        KeychainStore.remove(account)
+        XCTAssertNil(KeychainStore.get(account))
+        #endif
+    }
+
     func testActivationCodeFormatterAddsVisibleSeparators() {
         XCTAssertEqual(ActivationCodeFormatter.format("060213"), "060213")
         XCTAssertEqual(ActivationCodeFormatter.format("0602131"), "060213-1")
