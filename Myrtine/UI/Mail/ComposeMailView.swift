@@ -2,6 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ComposeMailView: View {
+    private static let maxAttachmentBytes = 3 * 1024 * 1024
     @Environment(\.dismiss) private var dismiss
     @Environment(AppEnvironment.self) private var environment
     let existingDraft: MailMessageRecord?
@@ -29,7 +30,12 @@ struct ComposeMailView: View {
         _recipient = State(initialValue: existingDraft?.recipient ?? recipient)
         _subject = State(initialValue: existingDraft?.subject ?? subject)
         let editor = RichTextEditorController()
-        if let draft = existingDraft { editor.load(html: draft.htmlBody, fallback: draft.body) }
+        if let draft = existingDraft {
+            editor.load(html: draft.htmlBody, fallback: draft.body)
+            let restored = (try? JSONDecoder().decode([MailAttachmentPayload].self, from: draft.attachmentsData)) ?? []
+            editor.inlineAttachments = restored.filter(\.isInline)
+            editor.regularAttachments = restored.filter { !$0.isInline }
+        }
         else { editor.attributedText = NSAttributedString(string: body, attributes: RichTextEditorController.defaultAttributes) }
         _controller = State(initialValue: editor)
     }
@@ -142,22 +148,28 @@ struct ComposeMailView: View {
 
     @ViewBuilder private var attachments: some View {
         if !controller.regularAttachments.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(controller.regularAttachments) { attachment in
-                        HStack(spacing: 6) {
-                            Image(systemName: "doc")
-                            Text(attachment.fileName).lineLimit(1)
-                            Button { controller.removeAttachment(attachment) } label: { Image(systemName: "xmark.circle.fill") }
-                                .accessibilityLabel("Retirer \(attachment.fileName)")
+            VStack(alignment: .leading, spacing: 0) {
+                Divider()
+                ForEach(controller.regularAttachments) { attachment in
+                    HStack(spacing: 10) {
+                        Image(systemName: "doc.fill").foregroundStyle(MyrtineTheme.accent).frame(width: 28)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(attachment.fileName).font(.subheadline.weight(.medium)).lineLimit(1)
+                            Text(ByteCountFormatter.string(fromByteCount: Int64(attachment.byteCount), countStyle: .file))
+                                .font(.caption2).foregroundStyle(.secondary)
                         }
-                        .font(.caption)
-                        .padding(.horizontal, 10)
-                        .frame(height: 40)
-                        .background(MyrtineTheme.canvas, in: Capsule())
+                        Spacer()
+                        Button { controller.removeAttachment(attachment) } label: {
+                            Image(systemName: "xmark.circle.fill").font(.title3).foregroundStyle(.secondary)
+                                .frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel("Retirer \(attachment.fileName)")
                     }
-                }.padding(.horizontal, 12).padding(.vertical, 6)
+                    .padding(.leading, 14).padding(.trailing, 6)
+                    .frame(minHeight: 52)
+                }
             }
+            .background(MyrtineTheme.canvas)
         }
     }
 
@@ -188,6 +200,7 @@ struct ComposeMailView: View {
         value.subject = subject.trimmingCharacters(in: .whitespacesAndNewlines)
         value.body = controller.plainText
         value.htmlBody = controller.htmlDocument()
+        value.attachmentsData = (try? JSONEncoder().encode(controller.inlineAttachments + controller.regularAttachments)) ?? Data()
         value.updatedAt = .now
         return value
     }
@@ -228,6 +241,7 @@ struct ComposeMailView: View {
             let access = url.startAccessingSecurityScopedResource(); defer { if access { url.stopAccessingSecurityScopedResource() } }
             let data = try Data(contentsOf: url, options: .mappedIfSafe)
             let type = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+            try validateCapacity(adding: data.count)
             try controller.insertImage(data: data, fileName: url.lastPathComponent, contentType: type)
         } catch { errorMessage = error.localizedDescription }
     }
@@ -237,14 +251,32 @@ struct ComposeMailView: View {
             for url in try result.get() {
                 let access = url.startAccessingSecurityScopedResource(); defer { if access { url.stopAccessingSecurityScopedResource() } }
                 let data = try Data(contentsOf: url, options: .mappedIfSafe)
-                guard data.count <= 18_000_000 else { throw ImportError.tooLarge }
                 let type = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
-                controller.addDocument(data: data, fileName: url.lastPathComponent, contentType: type)
+                try validateCapacity(adding: data.count)
+                if type.lowercased().hasPrefix("image/") {
+                    try controller.insertImage(data: data, fileName: url.lastPathComponent, contentType: type)
+                } else {
+                    controller.addDocument(data: data, fileName: url.lastPathComponent, contentType: type)
+                }
             }
         } catch { errorMessage = error.localizedDescription }
     }
 
-    enum ImportError: LocalizedError { case tooLarge; var errorDescription: String? { "La pièce jointe dépasse 18 Mo." } }
+    private func validateCapacity(adding bytes: Int) throws {
+        let current = (controller.inlineAttachments + controller.regularAttachments).reduce(0) { $0 + $1.byteCount }
+        guard bytes > 0 else { throw ImportError.empty }
+        guard current + bytes <= Self.maxAttachmentBytes else { throw ImportError.tooLarge }
+    }
+
+    enum ImportError: LocalizedError {
+        case empty, tooLarge
+        var errorDescription: String? {
+            switch self {
+            case .empty: "Le fichier sélectionné est vide."
+            case .tooLarge: "La taille totale des pièces jointes ne peut pas dépasser 3 Mo."
+            }
+        }
+    }
 }
 
 private struct FormatButton: View {

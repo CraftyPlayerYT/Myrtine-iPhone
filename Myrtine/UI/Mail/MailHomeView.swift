@@ -63,9 +63,12 @@ struct MailHomeView: View {
                     Button { showCompose = true } label: {
                         Image(systemName: "square.and.pencil")
                             .font(.body.weight(.semibold))
+                            .foregroundStyle(MyrtineTheme.accent)
                             .frame(width: 44, height: 44)
+                            .contentShape(Circle())
+                            .glassEffect(.regular.tint(MyrtineTheme.accent.opacity(0.16)).interactive(), in: .circle)
                     }
-                    .glassEffect(.regular.tint(MyrtineTheme.accent.opacity(0.16)).interactive(), in: .circle)
+                    .buttonStyle(.plain)
                     .accessibilityLabel("Nouveau message")
                     .accessibilityIdentifier("mail-compose")
                 }
@@ -250,7 +253,16 @@ struct MailFolderView: View {
         .toolbar {
             if folder.kind != "trash" {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showCompose = true } label: { Image(systemName: "square.and.pencil") }.frame(minWidth: 44, minHeight: 44).accessibilityLabel("Nouveau message")
+                    Button { showCompose = true } label: {
+                        Image(systemName: "square.and.pencil")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(MyrtineTheme.accent)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Circle())
+                            .glassEffect(.regular.tint(MyrtineTheme.accent.opacity(0.16)).interactive(), in: .circle)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Nouveau message")
                 }
             }
         }

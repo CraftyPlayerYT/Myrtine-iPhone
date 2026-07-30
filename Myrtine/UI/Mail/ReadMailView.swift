@@ -8,6 +8,12 @@ struct ReadMailView: View {
     @State private var composeMode: ComposeMode?
     @State private var htmlIsVisible = false
 
+    private var attachments: [MailAttachmentPayload] {
+        (try? JSONDecoder().decode([MailAttachmentPayload].self, from: message.attachmentsData)) ?? []
+    }
+
+    private var regularAttachments: [MailAttachmentPayload] { attachments.filter { !$0.isInline } }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -18,10 +24,11 @@ struct ReadMailView: View {
                 } else {
                     ZStack(alignment: .topLeading) {
                         if !htmlIsVisible { plainTextBody }
-                        MailHTMLView(html: message.htmlBody, fallback: message.body, isVisible: $htmlIsVisible)
+                        MailHTMLView(html: message.htmlBody, fallback: message.body, attachments: attachments, isVisible: $htmlIsVisible)
                             .opacity(htmlIsVisible ? 1 : 0)
                     }
                 }
+                if !regularAttachments.isEmpty { attachmentList }
             }
             .background(Color.white.ignoresSafeArea())
             .navigationTitle(message.subject.isEmpty ? "(Sans objet)" : message.subject)
@@ -91,11 +98,33 @@ struct ReadMailView: View {
         .background(Color.white)
         .accessibilityIdentifier("mail-reader-body")
     }
+
+    private var attachmentList: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Divider()
+            ForEach(regularAttachments) { attachment in
+                HStack(spacing: 10) {
+                    Image(systemName: "doc.fill").foregroundStyle(MyrtineTheme.accent).frame(width: 28)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(attachment.fileName).font(.subheadline.weight(.medium)).lineLimit(1)
+                        Text(ByteCountFormatter.string(fromByteCount: Int64(attachment.byteCount), countStyle: .file))
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .frame(minHeight: 54)
+            }
+        }
+        .background(MyrtineTheme.canvas)
+        .accessibilityIdentifier("mail-reader-attachments")
+    }
 }
 
 private struct MailHTMLView: UIViewRepresentable {
     let html: String
     let fallback: String
+    let attachments: [MailAttachmentPayload]
     @Binding var isVisible: Bool
 
     func makeUIView(context: Context) -> WKWebView {
@@ -112,7 +141,8 @@ private struct MailHTMLView: UIViewRepresentable {
     }
 
     func updateUIView(_ view: WKWebView, context: Context) {
-        let source = html.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? escapedFallback : html
+        let rawSource = html.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? escapedFallback : html
+        let source = MailHTMLRenderer.prepare(rawSource, attachments: attachments)
         guard context.coordinator.loadedSource != source else { return }
         context.coordinator.loadedSource = source
         isVisible = false
@@ -133,7 +163,7 @@ private struct MailHTMLView: UIViewRepresentable {
         """
         <!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
         <style>
-        :root{color-scheme:light}*{box-sizing:border-box}html,body{margin:0;background:transparent;color:#171b2e;font:17px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{padding:18px;overflow-x:auto}table{border-collapse:collapse;min-width:max-content}th,td{border:1px solid #cbd5e1;padding:9px;vertical-align:top}img{height:auto;max-height:70vh}a{color:#3859c7;overflow-wrap:anywhere}pre{white-space:pre;overflow-x:auto}
+        :root{color-scheme:light}*{box-sizing:border-box}html,body{width:100%;margin:0;background:transparent;color:#171b2e;font:17px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{padding:18px;overflow-x:hidden;overflow-wrap:anywhere}table{display:block;max-width:100%;overflow-x:auto;border-collapse:collapse;-webkit-overflow-scrolling:touch}th,td{min-width:150px;border:1px solid #cbd5e1;padding:9px;vertical-align:top}img{display:block;max-width:100%;height:auto;max-height:70vh;object-fit:contain}a{color:#3859c7;overflow-wrap:anywhere}pre{max-width:100%;white-space:pre;overflow-x:auto}
         </style></head><body>\(source)</body></html>
         """
     }
@@ -151,6 +181,28 @@ private struct MailHTMLView: UIViewRepresentable {
                 self.isVisible.wrappedValue = true
             }
         }
+    }
+}
+
+enum MailHTMLRenderer {
+    static func prepare(_ html: String, attachments: [MailAttachmentPayload]) -> String {
+        var result = bodyFragment(from: html)
+        result = result.replacingOccurrences(of: "<script\\b[^>]*>[\\s\\S]*?</script>", with: "", options: [.regularExpression, .caseInsensitive])
+        for attachment in attachments where attachment.isInline {
+            guard let cid = attachment.contentID, attachment.byteCount > 0 else { continue }
+            let dataURL = "data:\(attachment.contentType);base64,\(attachment.base64Content)"
+            result = result.replacingOccurrences(of: "cid:\(cid)", with: dataURL, options: .caseInsensitive)
+        }
+        return result
+    }
+
+    static func bodyFragment(from html: String) -> String {
+        guard let expression = try? NSRegularExpression(pattern: "<body\\b[^>]*>([\\s\\S]*?)</body>", options: .caseInsensitive),
+              let match = expression.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
+              let range = Range(match.range(at: 1), in: html) else {
+            return html
+        }
+        return String(html[range])
     }
 }
 

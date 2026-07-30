@@ -46,35 +46,36 @@ struct MarkdownDocumentView: View {
 private struct MarkdownTableView: View {
     let headers: [String]
     let rows: [[String]]
-    private let width: CGFloat = 190
 
     var body: some View {
-        ScrollView(.horizontal) {
-            Grid(alignment: .topLeading, horizontalSpacing: 0, verticalSpacing: 0) {
-                GridRow {
-                    ForEach(Array(headers.enumerated()), id: \.offset) { _, header in
-                        cell(header, header: true)
-                    }
-                }
+        ScrollView(.horizontal, showsIndicators: true) {
+            VStack(alignment: .leading, spacing: 0) {
+                tableRow(headers, header: true, shaded: false)
                 ForEach(Array(rows.enumerated()), id: \.offset) { rowIndex, row in
-                    GridRow {
-                        ForEach(headers.indices, id: \.self) { column in
-                            cell(column < row.count ? row[column] : "", header: false)
-                                .background(rowIndex.isMultiple(of: 2) ? Color.black.opacity(0.025) : .clear)
-                        }
-                    }
+                    tableRow(row, header: false, shaded: rowIndex.isMultiple(of: 2))
                 }
             }
             .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MyrtineTheme.divider) }
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(MyrtineTheme.divider) }
+            .padding(.bottom, 4)
         }
         .scrollIndicators(.visible)
         .accessibilityIdentifier("diagnostic-result-table")
         .accessibilityLabel("Tableau des aides, \(rows.count) lignes")
     }
 
-    private func cell(_ value: String, header: Bool) -> some View {
+    private func tableRow(_ values: [String], header: Bool, shaded: Bool) -> some View {
+        HStack(alignment: .top, spacing: 0) {
+            ForEach(headers.indices, id: \.self) { column in
+                cell(column < values.count ? values[column] : "", column: column, header: header)
+            }
+        }
+        .background(header ? MyrtineTheme.ink : shaded ? Color.black.opacity(0.035) : Color.white)
+        .overlay(alignment: .bottom) { Rectangle().fill(header ? Color.clear : MyrtineTheme.divider).frame(height: 1) }
+    }
+
+    private func cell(_ value: String, column: Int, header: Bool) -> some View {
         Group {
             if let attributed = try? AttributedString(markdown: value, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
                 Text(attributed)
@@ -82,11 +83,24 @@ private struct MarkdownTableView: View {
         }
         .font(header ? .subheadline.weight(.bold) : .footnote)
         .foregroundStyle(header ? Color.white : MyrtineTheme.ink)
-        .frame(width: width, alignment: .topLeading)
-        .frame(minHeight: 48, alignment: .topLeading)
-        .padding(10)
-        .background(header ? MyrtineTheme.ink : .clear)
+        .lineSpacing(3)
+        .frame(width: MarkdownTableLayout.width(for: headers[column]), alignment: .topLeading)
+        .frame(minHeight: 52, maxHeight: .infinity, alignment: .topLeading)
+        .padding(12)
         .overlay(alignment: .trailing) { Rectangle().fill(header ? Color.white.opacity(0.16) : MyrtineTheme.divider).frame(width: 1) }
+    }
+}
+
+enum MarkdownTableLayout {
+    static func width(for header: String) -> CGFloat {
+        let value = header.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+        if value.contains("critere") { return 300 }
+        if value.contains("cahier") || value.contains("lien") { return 240 }
+        if value.contains("dispositif") || value.contains("nom") { return 230 }
+        if value.contains("fourchette") || value.contains("montant") || value.contains("subvention") { return 200 }
+        if value.contains("echeance") || value.contains("date") { return 190 }
+        if value.contains("organisme") { return 180 }
+        return 210
     }
 }
 

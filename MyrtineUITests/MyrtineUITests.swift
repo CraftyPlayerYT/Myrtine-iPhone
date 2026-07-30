@@ -128,8 +128,11 @@ final class MyrtineUITests: XCTestCase {
         }
         XCTAssertTrue(resultTitle.isHittable)
         detail.swipeUp()
-        XCTAssertTrue(app.descendants(matching: .any)["diagnostic-result-table"].waitForExistence(timeout: 5))
+        let table = app.descendants(matching: .any)["diagnostic-result-table"]
+        XCTAssertTrue(table.waitForExistence(timeout: 5))
         capture("45-resultat-markdown-rendu")
+        table.swipeLeft()
+        capture("46-resultat-tableau-defile")
     }
 
     func testAirplaneModeKeepsLocalAppUsable() throws {

@@ -155,6 +155,7 @@ final class MyrtineAPIClient {
 
 struct MailAttachmentPayload: Codable, Identifiable, Sendable {
     var id: String { "\(fileName)-\(contentID ?? "attachment")" }
+    var byteCount: Int { Data(base64Encoded: base64Content)?.count ?? 0 }
     let fileName: String
     let contentType: String
     let base64Content: String
