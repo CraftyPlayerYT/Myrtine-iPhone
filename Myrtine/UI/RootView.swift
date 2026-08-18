@@ -210,7 +210,9 @@ private struct ActivationCodeTextField: UIViewRepresentable {
 
     func updateUIView(_ uiView: UITextField, context: Context) {
         context.coordinator.parent = self
-        if uiView.text != text {
+        // Do not replay a slightly stale SwiftUI binding while UIKit is
+        // processing a fast sequence of number-pad keystrokes.
+        if !uiView.isFirstResponder, uiView.text != text {
             uiView.text = text
         }
     }
