@@ -130,7 +130,7 @@ final class MyrtineAPIClient {
     }
 
     func postServer<Body: Encodable, Response: Decodable>(_ body: Body, requiresActivation: Bool = true) async throws -> Response {
-        var request = URLRequest(url: Self.serverURL.appending(path: "diagnostic-flash"))
+        var request = URLRequest(url: Self.serverURL.appending(path: "diagnostic-flash/ios"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("iphone-app", forHTTPHeaderField: "X-Myrtine-Source")
