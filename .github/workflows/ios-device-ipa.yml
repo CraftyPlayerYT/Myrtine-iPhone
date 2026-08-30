@@ -2,6 +2,8 @@ name: Build iPhone IPA
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 jobs:
   build-device-ipa:
