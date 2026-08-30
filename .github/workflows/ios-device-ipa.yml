@@ -1,0 +1,58 @@
+name: Build iPhone IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-device-ipa:
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build for a physical iPhone
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          xcodebuild build \
+            -project Myrtine.xcodeproj \
+            -scheme Myrtine \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Package the unsigned IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_PATH="DerivedData/Build/Products/Release-iphoneos/Myrtine.app"
+          test -d "$APP_PATH"
+
+          mkdir -p Package/Payload
+          ditto "$APP_PATH" Package/Payload/Myrtine.app
+
+          (
+            cd Package
+            /usr/bin/zip -qry Myrtine-iPhone-unsigned.ipa Payload
+          )
+
+          shasum -a 256 Package/Myrtine-iPhone-unsigned.ipa \
+            > Package/Myrtine-iPhone-unsigned.ipa.sha256
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Myrtine-iPhone-IPA
+          path: |
+            Package/Myrtine-iPhone-unsigned.ipa
+            Package/Myrtine-iPhone-unsigned.ipa.sha256
+          if-no-files-found: error
+          retention-days: 30
