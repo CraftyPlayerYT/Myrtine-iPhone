@@ -74,6 +74,40 @@ jobs:
           shasum -a 256 LegacyGlassTest/Package/Myrtine-Glass-iOS16-unsigned.ipa \
             > LegacyGlassTest/Package/Myrtine-Glass-iOS16-unsigned.ipa.sha256
 
+      - name: Capture 4.7-inch visual preview
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DEVICE_LINE=$(xcrun simctl list devices available | grep -m1 'iPhone SE (3rd generation)')
+          DEVICE_ID=$(printf '%s\n' "$DEVICE_LINE" | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/')
+          test -n "$DEVICE_ID"
+
+          xcrun simctl boot "$DEVICE_ID" || true
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+
+          xcodebuild build \
+            -project LegacyGlassTest/LegacyGlassTest.xcodeproj \
+            -scheme LegacyGlassTest \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,id=$DEVICE_ID" \
+            -derivedDataPath LegacyGlassTest/SimulatorData \
+            CODE_SIGNING_ALLOWED=NO
+
+          SIMULATOR_APP="LegacyGlassTest/SimulatorData/Build/Products/Debug-iphonesimulator/MyrtineGlass.app"
+          test -d "$SIMULATOR_APP"
+
+          xcrun simctl install "$DEVICE_ID" "$SIMULATOR_APP"
+          xcrun simctl launch "$DEVICE_ID" fr.myrtine.legacyglasstest
+          sleep 3
+          xcrun simctl io "$DEVICE_ID" screenshot LegacyGlassTest/Package/iPhone-8-layout.png
+
+          WIDTH=$(sips -g pixelWidth LegacyGlassTest/Package/iPhone-8-layout.png | awk '/pixelWidth/ {print $2}')
+          HEIGHT=$(sips -g pixelHeight LegacyGlassTest/Package/iPhone-8-layout.png | awk '/pixelHeight/ {print $2}')
+          test "$WIDTH" = "750"
+          test "$HEIGHT" = "1334"
+
       - name: Upload iPhone 8 compatible IPA
         uses: actions/upload-artifact@v4
         with:
@@ -81,5 +115,6 @@ jobs:
           path: |
             LegacyGlassTest/Package/Myrtine-Glass-iOS16-unsigned.ipa
             LegacyGlassTest/Package/Myrtine-Glass-iOS16-unsigned.ipa.sha256
+            LegacyGlassTest/Package/iPhone-8-layout.png
           if-no-files-found: error
           retention-days: 30
