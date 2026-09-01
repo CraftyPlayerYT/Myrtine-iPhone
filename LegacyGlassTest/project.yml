@@ -1,0 +1,50 @@
+name: LegacyGlassTest
+
+options:
+  bundleIdPrefix: fr.myrtine
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "15.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    TARGETED_DEVICE_FAMILY: "1"
+
+targets:
+  LegacyGlassTest:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: fr.myrtine.legacyglasstest
+        PRODUCT_NAME: MyrtineGlass
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_STYLE: Automatic
+        SUPPORTS_MACCATALYST: NO
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Myrtine Glass
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIUserInterfaceStyle: Light
+        UIViewControllerBasedStatusBarAppearance: true
+
+schemes:
+  LegacyGlassTest:
+    build:
+      targets:
+        LegacyGlassTest: all
+    run:
+      config: Debug
+    archive:
+      config: Release

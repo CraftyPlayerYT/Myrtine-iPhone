@@ -1,0 +1,85 @@
+name: Build iOS 16 Glass Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "LegacyGlassTest/**"
+      - ".github/workflows/ios16-style-test.yml"
+
+jobs:
+  build-test-app:
+    runs-on: macos-26
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: LegacyGlassTest
+        run: xcodegen generate
+
+      - name: Build for physical iPhones
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          xcodebuild build \
+            -project LegacyGlassTest/LegacyGlassTest.xcodeproj \
+            -scheme LegacyGlassTest \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath LegacyGlassTest/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Verify iOS 16 compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_PATH="LegacyGlassTest/DerivedData/Build/Products/Release-iphoneos/MyrtineGlass.app"
+          test -d "$APP_PATH"
+          test -f "$APP_PATH/Info.plist"
+          test -x "$APP_PATH/MyrtineGlass"
+
+          MINIMUM_OS=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP_PATH/Info.plist")
+          PLATFORM=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleSupportedPlatforms:0' "$APP_PATH/Info.plist")
+
+          test "$MINIMUM_OS" = "16.0"
+          test "$PLATFORM" = "iPhoneOS"
+
+      - name: Package unsigned IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_PATH="LegacyGlassTest/DerivedData/Build/Products/Release-iphoneos/MyrtineGlass.app"
+          mkdir -p LegacyGlassTest/Package/Payload
+          ditto "$APP_PATH" "LegacyGlassTest/Package/Payload/MyrtineGlass.app"
+
+          (
+            cd LegacyGlassTest/Package
+            /usr/bin/zip -qry Myrtine-Glass-iOS16-unsigned.ipa Payload
+          )
+
+          unzip -l LegacyGlassTest/Package/Myrtine-Glass-iOS16-unsigned.ipa
+          shasum -a 256 LegacyGlassTest/Package/Myrtine-Glass-iOS16-unsigned.ipa \
+            > LegacyGlassTest/Package/Myrtine-Glass-iOS16-unsigned.ipa.sha256
+
+      - name: Upload iPhone 8 compatible IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Myrtine-Glass-iPhone8-iOS16
+          path: |
+            LegacyGlassTest/Package/Myrtine-Glass-iOS16-unsigned.ipa
+            LegacyGlassTest/Package/Myrtine-Glass-iOS16-unsigned.ipa.sha256
+          if-no-files-found: error
+          retention-days: 30
