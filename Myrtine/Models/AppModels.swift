@@ -27,6 +27,7 @@ final class DiagnosticRecord {
     var budget: String
     var schedule: String
     var expenses: [String]
+    var additionalInformation: String = ""
     var lastName: String
     var firstName: String
     var email: String
@@ -53,6 +54,7 @@ final class DiagnosticRecord {
         budget: String = "",
         schedule: String = "",
         expenses: [String] = [],
+        additionalInformation: String = "",
         lastName: String = "",
         firstName: String = "",
         email: String = "",
@@ -72,6 +74,7 @@ final class DiagnosticRecord {
         self.budget = budget
         self.schedule = schedule
         self.expenses = expenses
+        self.additionalInformation = additionalInformation
         self.lastName = lastName
         self.firstName = firstName
         self.email = email
@@ -102,10 +105,7 @@ final class DiagnosticRecord {
         !workforce.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !budget.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !schedule.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !expenses.isEmpty &&
-        !lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        email.contains("@")
+        !expenses.isEmpty
     }
 }
 

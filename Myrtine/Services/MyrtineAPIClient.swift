@@ -179,6 +179,7 @@ private struct DiagnosticPayload: Encodable {
     let budget: String
     let schedule: String
     let expenses: [String]
+    let additionalInformation: String
     let lastName: String
     let firstName: String
     let email: String
@@ -195,6 +196,7 @@ private struct DiagnosticPayload: Encodable {
         budget = value.budget
         schedule = value.schedule
         expenses = value.expenses
+        additionalInformation = value.additionalInformation
         lastName = value.lastName
         firstName = value.firstName
         email = value.email
@@ -213,6 +215,7 @@ private struct DiagnosticPayload: Encodable {
         case budget = "budget_previsionnel"
         case schedule = "calendrier"
         case expenses = "depenses_concernees"
+        case additionalInformation = "informations_supplementaires"
         case lastName = "nom"
         case firstName = "prenom"
         case email
@@ -339,7 +342,6 @@ enum PromptBuilder {
         """
         Date de référence : \(Date.now.formatted(date: .complete, time: .omitted)), heure de Paris.
 
-        Demandeur : \(d.firstName) \(d.lastName), \(d.email), \(d.phone.isEmpty ? "téléphone non renseigné" : d.phone).
         Objet du projet : \(d.projectObject)
         Porteur du projet : \(d.projectOwner)
         Secteur : \(d.sector)
@@ -349,6 +351,7 @@ enum PromptBuilder {
         Budget prévisionnel : \(d.budget)
         Calendrier : \(d.schedule)
         Dépenses : \(d.expenses.joined(separator: ", "))
+        Informations supplémentaires : \(d.additionalInformation.isEmpty ? "non renseignées" : d.additionalInformation)
 
         Identifie toutes les aides auxquelles ce projet semble réellement éligible. Pour chaque ligne, vérifie l'URL directe du dispositif, son règlement ou cahier des charges actuel lorsqu'il existe, le montant mobilisable et l'échéance. Si une information n'est pas vérifiable, indique « Information non vérifiée » au lieu de l'inventer.
         """

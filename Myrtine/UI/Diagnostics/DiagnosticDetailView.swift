@@ -10,7 +10,7 @@ struct DiagnosticDetailView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 16) {
-                    identity
+                    if hasContact { identity }
                     project
                     if !diagnostic.resultMarkdown.isEmpty {
                         Surface {
@@ -33,7 +33,7 @@ struct DiagnosticDetailView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Fermer") { dismiss() }.frame(minHeight: 44) }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        if !diagnostic.resultMarkdown.isEmpty {
+                        if !diagnostic.resultMarkdown.isEmpty && !diagnostic.email.isEmpty {
                             Button { sendResult() } label: { Label("Envoyer par e-mail", systemImage: "paperplane") }
                         }
                         Button(role: .destructive) { try? environment.store.moveDiagnosticToTrash(diagnostic); dismiss() } label: { Label("Mettre à la corbeille", systemImage: "trash") }
@@ -53,8 +53,10 @@ struct DiagnosticDetailView: View {
                 Circle().fill(MyrtineTheme.accent.opacity(0.12)).frame(width: 56, height: 56)
                     .overlay { Text(String(diagnostic.firstName.prefix(1)) + String(diagnostic.lastName.prefix(1))).font(.headline).foregroundStyle(MyrtineTheme.accent) }
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(diagnostic.fullName).font(.title3.weight(.bold))
-                    Link(diagnostic.email, destination: URL(string: "mailto:\(diagnostic.email)")!)
+                    if !diagnostic.fullName.isEmpty { Text(diagnostic.fullName).font(.title3.weight(.bold)) }
+                    if !diagnostic.email.isEmpty, let emailURL = URL(string: "mailto:\(diagnostic.email)") {
+                        Link(diagnostic.email, destination: emailURL)
+                    }
                     if !diagnostic.phone.isEmpty { Link(diagnostic.phone, destination: URL(string: "tel:\(diagnostic.phone.filter(\.isNumber))")!) }
                 }
                 Spacer()
@@ -74,7 +76,12 @@ struct DiagnosticDetailView: View {
             DetailLine(label: "Budget", value: diagnostic.budget)
             DetailLine(label: "Calendrier", value: diagnostic.schedule)
             DetailLine(label: "Dépenses", value: diagnostic.expenses.joined(separator: "\n"))
+            DetailLine(label: "Informations supplémentaires", value: diagnostic.additionalInformation)
         }
+    }
+
+    private var hasContact: Bool {
+        !diagnostic.fullName.isEmpty || !diagnostic.email.isEmpty || !diagnostic.phone.isEmpty
     }
 
     private func sendResult() {

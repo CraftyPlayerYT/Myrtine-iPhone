@@ -21,7 +21,7 @@ struct NewDiagnosticView: View {
                 LazyVStack(spacing: 16) {
                     projectSection
                     expenseSection
-                    contactSection
+                    additionalInformationSection
                     if let errorMessage {
                         Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
                             .font(.subheadline)
@@ -101,13 +101,10 @@ struct NewDiagnosticView: View {
         }
     }
 
-    private var contactSection: some View {
+    private var additionalInformationSection: some View {
         Surface {
-            Text("Contact").font(.title3.weight(.bold))
-            FormField("Prénom", required: true, text: $draft.firstName, contentType: .givenName)
-            FormField("Nom", required: true, text: $draft.lastName, contentType: .familyName)
-            FormField("Adresse e-mail", required: true, text: $draft.email, contentType: .emailAddress, keyboard: .emailAddress)
-            FormField("Téléphone", text: $draft.phone, contentType: .telephoneNumber, keyboard: .phonePad)
+            Text("Informations supplémentaires").font(.title3.weight(.bold))
+            FormField("Précisions utiles sur le projet", text: $draft.additionalInformation, axis: .vertical)
         }
     }
 
@@ -153,7 +150,7 @@ struct NewDiagnosticView: View {
     }
 
     private func makeRecord() -> DiagnosticRecord {
-        DiagnosticRecord(projectObject: draft.projectObject, projectOwner: draft.projectOwner, sector: draft.sector, location: draft.location, workforce: draft.workforce, revenue: draft.revenue, budget: draft.budget, schedule: draft.schedule, expenses: draft.expenses, lastName: draft.lastName, firstName: draft.firstName, email: draft.email, phone: draft.phone)
+        DiagnosticRecord(projectObject: draft.projectObject, projectOwner: draft.projectOwner, sector: draft.sector, location: draft.location, workforce: draft.workforce, revenue: draft.revenue, budget: draft.budget, schedule: draft.schedule, expenses: draft.expenses, additionalInformation: draft.additionalInformation)
     }
 
     private func saveDraftAndDismiss() {
@@ -239,13 +236,10 @@ private struct DiagnosticDraft {
     var budget = ""
     var schedule = ""
     var expenses: [String] = []
-    var lastName = ""
-    var firstName = ""
-    var email = ""
-    var phone = ""
+    var additionalInformation = ""
 
     var isComplete: Bool {
-        [projectObject, projectOwner, sector, location, workforce, budget, schedule, lastName, firstName].allSatisfy { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } && !expenses.isEmpty && email.contains("@")
+        [projectObject, projectOwner, sector, location, workforce, budget, schedule].allSatisfy { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } && !expenses.isEmpty
     }
 
     static let uiTestSample = DiagnosticDraft(
@@ -258,9 +252,6 @@ private struct DiagnosticDraft {
         budget: "150 000 € HT",
         schedule: "Deuxième trimestre 2027",
         expenses: ["Machines moins énergivores"],
-        lastName: "Martin",
-        firstName: "Camille",
-        email: "camille@example.fr",
-        phone: "0600000000"
+        additionalInformation: "Le bâtiment est déjà raccordé au réseau de chaleur."
     )
 }

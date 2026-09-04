@@ -17,12 +17,12 @@ final class OfflineAndSyncTests: XCTestCase {
     }
 
     func testActivationCodeFormatterAddsVisibleSeparators() {
-        XCTAssertEqual(ActivationCodeFormatter.format("060213"), "060213")
-        XCTAssertEqual(ActivationCodeFormatter.format("0602131"), "060213-1")
-        XCTAssertEqual(ActivationCodeFormatter.format("060213121215061222"), "060213-121215-061222")
-        XCTAssertEqual(ActivationCodeFormatter.format("060213-121215-061222999"), "060213-121215-061222")
-        XCTAssertTrue(ActivationCodeFormatter.isComplete("060213121215061222"))
-        XCTAssertFalse(ActivationCodeFormatter.isComplete("060213121215"))
+        XCTAssertEqual(ActivationCodeFormatter.format("123456"), "123456")
+        XCTAssertEqual(ActivationCodeFormatter.format("1234566"), "123456-6")
+        XCTAssertEqual(ActivationCodeFormatter.format("123456654321112233"), "123456-654321-112233")
+        XCTAssertEqual(ActivationCodeFormatter.format("123456-654321-112233999"), "123456-654321-112233")
+        XCTAssertTrue(ActivationCodeFormatter.isComplete("123456654321112233"))
+        XCTAssertFalse(ActivationCodeFormatter.isComplete("123456654321"))
     }
 
     func testActivationTokenNamespaceInvalidatesPreReleaseToken() {
@@ -57,6 +57,13 @@ final class OfflineAndSyncTests: XCTestCase {
         XCTAssertEqual(diagnostic.aiProvider, "Simulation")
     }
 
+    func testDiagnosticIsCompleteWithoutContactInformation() {
+        let diagnostic = completeDiagnostic()
+        XCTAssertTrue(diagnostic.isComplete)
+        XCTAssertTrue(diagnostic.email.isEmpty)
+        XCTAssertEqual(diagnostic.additionalInformation, "Le bâtiment est déjà raccordé au réseau de chaleur.")
+    }
+
     func testDeletedFolderKeepsAndRestoresItsMessages() throws {
         let environment = AppEnvironment(inMemory: true, useMocks: true)
         environment.store.seedSystemFolders()
@@ -82,6 +89,6 @@ final class OfflineAndSyncTests: XCTestCase {
     }
 
     private func completeDiagnostic() -> DiagnosticRecord {
-        DiagnosticRecord(projectObject: "Réduire la consommation énergétique", projectOwner: "Atelier Test", sector: "Industrie", location: "Lyon", workforce: "12 salariés", revenue: "900 000 €", budget: "150 000 €", schedule: "2027", expenses: ["Machines"], lastName: "Martin", firstName: "Camille", email: "camille@example.fr", phone: "0600000000")
+        DiagnosticRecord(projectObject: "Réduire la consommation énergétique", projectOwner: "Atelier Test", sector: "Industrie", location: "Lyon", workforce: "12 salariés", revenue: "900 000 €", budget: "150 000 €", schedule: "2027", expenses: ["Machines"], additionalInformation: "Le bâtiment est déjà raccordé au réseau de chaleur.")
     }
 }

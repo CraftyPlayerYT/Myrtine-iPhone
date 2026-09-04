@@ -24,7 +24,7 @@ struct DiagnosticsHomeView: View {
             case .trash: diagnostic.isTrashed
             }
             let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
-            return inScope && (query.isEmpty || [diagnostic.fullName, diagnostic.email, diagnostic.projectObject, diagnostic.sector, diagnostic.location].contains { $0.localizedCaseInsensitiveContains(query) })
+            return inScope && (query.isEmpty || [diagnostic.fullName, diagnostic.email, diagnostic.projectOwner, diagnostic.projectObject, diagnostic.sector, diagnostic.location, diagnostic.additionalInformation].contains { $0.localizedCaseInsensitiveContains(query) })
         }
     }
 
@@ -33,7 +33,7 @@ struct DiagnosticsHomeView: View {
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass").foregroundStyle(MyrtineTheme.accent)
-                    TextField("Nom, e-mail, secteur…", text: $search)
+                    TextField("Projet, porteur, secteur…", text: $search)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                     if !search.isEmpty {
@@ -68,13 +68,13 @@ struct DiagnosticsHomeView: View {
                         HStack(spacing: 4) {
                             Button { open(diagnostic) } label: { DiagnosticListRow(diagnostic: diagnostic) }
                                 .buttonStyle(.plain)
-                                .accessibilityIdentifier("diagnostic-open-\(diagnostic.email)")
+                                .accessibilityIdentifier("diagnostic-open-\(diagnostic.id)")
                             Menu { actions(for: diagnostic) } label: {
                                 Image(systemName: "ellipsis")
                                     .frame(width: 44, height: 44)
                                     .contentShape(Rectangle())
                             }
-                            .accessibilityLabel("Actions pour \(diagnostic.fullName)")
+                            .accessibilityLabel("Actions pour \(diagnostic.displayTitle)")
                         }
                         .listRowBackground(Color.white)
                         .contextMenu { actions(for: diagnostic) }
@@ -117,7 +117,7 @@ struct DiagnosticsHomeView: View {
         if diagnostic.isTrashed {
             Button { try? environment.store.restoreDiagnostic(diagnostic) } label: { Label("Restaurer", systemImage: "arrow.uturn.backward") }
         } else {
-            if !diagnostic.resultMarkdown.isEmpty {
+            if !diagnostic.resultMarkdown.isEmpty && !diagnostic.email.isEmpty {
                 Button {
                     Task {
                         do {
@@ -144,7 +144,7 @@ private struct DiagnosticListRow: View {
                     .fill(MyrtineTheme.accent.opacity(0.12))
                     .frame(width: 52, height: 52)
                     .overlay {
-                        Text(String(diagnostic.firstName.prefix(1)) + String(diagnostic.lastName.prefix(1)))
+                        Text(diagnostic.displayInitials)
                             .font(.body.weight(.bold))
                             .foregroundStyle(MyrtineTheme.accent)
                     }
@@ -154,7 +154,7 @@ private struct DiagnosticListRow: View {
             }
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    Text(diagnostic.fullName.isEmpty ? diagnostic.email : diagnostic.fullName)
+                    Text(diagnostic.displayTitle)
                         .font(.body.weight(diagnostic.isRead ? .regular : .semibold))
                         .lineLimit(1)
                     Spacer()
@@ -176,5 +176,20 @@ private struct DiagnosticListRow: View {
         }
         .frame(minHeight: 86)
         .contentShape(Rectangle())
+    }
+}
+
+private extension DiagnosticRecord {
+    var displayTitle: String {
+        if !fullName.isEmpty { return fullName }
+        if !email.isEmpty { return email }
+        if !projectOwner.isEmpty { return projectOwner }
+        return projectObject
+    }
+
+    var displayInitials: String {
+        let contactInitials = String(firstName.prefix(1)) + String(lastName.prefix(1))
+        if !contactInitials.isEmpty { return contactInitials }
+        return projectOwner.split(separator: " ").prefix(2).compactMap(\.first).map(String.init).joined()
     }
 }

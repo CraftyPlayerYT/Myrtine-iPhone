@@ -102,6 +102,7 @@ private struct RemoteDiagnostic: Codable {
     let budget: String
     let schedule: String
     let expensesJSON: String
+    let additionalInformation: String
     let lastName: String
     let firstName: String
     let email: String
@@ -127,6 +128,7 @@ private struct RemoteDiagnostic: Codable {
         budget = value.budget
         schedule = value.schedule
         expensesJSON = String(data: (try? JSONEncoder().encode(value.expenses)) ?? Data("[]".utf8), encoding: .utf8) ?? "[]"
+        additionalInformation = value.additionalInformation
         lastName = value.lastName
         firstName = value.firstName
         email = value.email
@@ -139,14 +141,14 @@ private struct RemoteDiagnostic: Codable {
     }
 
     var snapshot: DiagnosticSnapshot {
-        DiagnosticSnapshot(id: id, createdAt: createdAt, updatedAt: updatedAt, deletedAt: deletedAt, state: status, projectObject: projectObject, projectOwner: projectOwner, sector: sector, location: location, workforce: workforce, revenue: revenue, budget: budget, schedule: schedule, expenses: (try? JSONDecoder().decode([String].self, from: Data(expensesJSON.utf8))) ?? [], lastName: lastName, firstName: firstName, email: email, phone: phone, resultMarkdown: resultMarkdown ?? "", lastError: lastError ?? "", isDeleted: isDeleted ?? false, isRead: isRead)
+        DiagnosticSnapshot(id: id, createdAt: createdAt, updatedAt: updatedAt, deletedAt: deletedAt, state: status, projectObject: projectObject, projectOwner: projectOwner, sector: sector, location: location, workforce: workforce, revenue: revenue, budget: budget, schedule: schedule, expenses: (try? JSONDecoder().decode([String].self, from: Data(expensesJSON.utf8))) ?? [], additionalInformation: additionalInformation, lastName: lastName, firstName: firstName, email: email, phone: phone, resultMarkdown: resultMarkdown ?? "", lastError: lastError ?? "", isDeleted: isDeleted ?? false, isRead: isRead)
     }
 
     enum CodingKeys: String, CodingKey {
         case id, status, sector = "secteur", location = "localisation", workforce = "effectif", schedule = "calendrier", email
         case createdAt = "created_at", updatedAt = "updated_at", deletedAt = "deleted_at"
         case projectObject = "objet_projet", projectOwner = "porteur_projet", revenue = "chiffre_affaires", budget = "budget_previsionnel"
-        case expensesJSON = "depenses_json", lastName = "nom", firstName = "prenom", phone = "telephone"
+        case expensesJSON = "depenses_json", additionalInformation = "informations_supplementaires", lastName = "nom", firstName = "prenom", phone = "telephone"
         case resultMarkdown = "server_message", lastError = "last_error", isDeleted = "is_deleted", syncRequired = "sync_required", isRead = "is_read"
     }
 }

@@ -111,9 +111,10 @@ final class MyrtineUITests: XCTestCase {
         form.swipeUp()
         capture("32-depenses-completes")
         form.swipeUp()
-        XCTAssertTrue(app.textFields["field-Adresse e-mail"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.textFields["field-Adresse e-mail"].value as? String, "camille@example.fr")
-        capture("33-contact-complet")
+        let additionalInformation = app.textFields["field-Précisions utiles sur le projet"]
+        XCTAssertTrue(additionalInformation.waitForExistence(timeout: 5))
+        XCTAssertEqual(additionalInformation.value as? String, "Le bâtiment est déjà raccordé au réseau de chaleur.")
+        capture("33-informations-supplementaires")
 
         let submit = app.buttons["diagnostic-submit"]
         XCTAssertTrue(submit.isEnabled)
@@ -153,8 +154,8 @@ final class MyrtineUITests: XCTestCase {
     func testFirstLaunchActivationIsServerDriven() throws {
         let code = app.textFields["activation-code"]
         code.tap()
-        code.typeText("060213121215061222")
-        XCTAssertEqual(code.value as? String, "060213-121215-061222")
+        code.typeText("123456654321112233")
+        XCTAssertEqual(code.value as? String, "123456-654321-112233")
         capture("50a-activation-code-formate")
         app.buttons["activation-submit"].tap()
         XCTAssertTrue(app.navigationBars["Myrtine"].waitForExistence(timeout: 8))

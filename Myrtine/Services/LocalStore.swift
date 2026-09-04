@@ -47,6 +47,7 @@ final class LocalStore {
             existing.budget = remote.budget
             existing.schedule = remote.schedule
             existing.expenses = remote.expenses
+            existing.additionalInformation = remote.additionalInformation
             existing.lastName = remote.lastName
             existing.firstName = remote.firstName
             existing.email = remote.email
@@ -70,6 +71,7 @@ final class LocalStore {
                 budget: remote.budget,
                 schedule: remote.schedule,
                 expenses: remote.expenses,
+                additionalInformation: remote.additionalInformation,
                 lastName: remote.lastName,
                 firstName: remote.firstName,
                 email: remote.email,
@@ -118,6 +120,7 @@ final class LocalStore {
 
     func upsertClient(from diagnostic: DiagnosticRecord) throws {
         let normalizedEmail = diagnostic.email.lowercased()
+        guard !normalizedEmail.isEmpty else { return }
         if let existing = clients().first(where: { $0.email == normalizedEmail }) {
             existing.lastName = diagnostic.lastName
             existing.firstName = diagnostic.firstName
@@ -422,6 +425,7 @@ struct DiagnosticSnapshot: Sendable {
     let budget: String
     let schedule: String
     let expenses: [String]
+    let additionalInformation: String
     let lastName: String
     let firstName: String
     let email: String
