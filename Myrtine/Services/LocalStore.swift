@@ -20,7 +20,9 @@ final class LocalStore {
     }
 
     func diagnostic(id: String) -> DiagnosticRecord? {
-        diagnostics(includeDeleted: true).first { $0.id == id }
+        var descriptor = FetchDescriptor<DiagnosticRecord>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        return try? context.fetch(descriptor).first
     }
 
     func insert(_ diagnostic: DiagnosticRecord) throws {
@@ -121,7 +123,7 @@ final class LocalStore {
     func upsertClient(from diagnostic: DiagnosticRecord) throws {
         let normalizedEmail = diagnostic.email.lowercased()
         guard !normalizedEmail.isEmpty else { return }
-        if let existing = clients().first(where: { $0.email == normalizedEmail }) {
+        if let existing = client(email: normalizedEmail) {
             existing.lastName = diagnostic.lastName
             existing.firstName = diagnostic.firstName
             existing.phone = diagnostic.phone
@@ -133,7 +135,8 @@ final class LocalStore {
     }
 
     func upsertClient(_ remote: ClientSnapshot) throws {
-        if let existing = clients().first(where: { $0.email == remote.email.lowercased() }) {
+        let normalizedEmail = remote.email.lowercased()
+        if let existing = client(email: normalizedEmail) {
             guard remote.updatedAt > existing.updatedAt else { return }
             existing.lastName = remote.lastName
             existing.firstName = remote.firstName
@@ -157,7 +160,10 @@ final class LocalStore {
     }
 
     func folder(named name: String) -> MailFolderRecord? {
-        folders(includeDeleted: true).first { $0.name.caseInsensitiveCompare(name) == .orderedSame }
+        let normalizedName = name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+        return folders(includeDeleted: true).first {
+            $0.name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current) == normalizedName
+        }
     }
 
     func createFolder(name: String) throws -> MailFolderRecord {
@@ -263,7 +269,9 @@ final class LocalStore {
     }
 
     func message(id: String) -> MailMessageRecord? {
-        messages(includeDeleted: true).first { $0.id == id }
+        var descriptor = FetchDescriptor<MailMessageRecord>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        return try? context.fetch(descriptor).first
     }
 
     func saveMessage(_ message: MailMessageRecord, queue: Bool = true) throws {
@@ -329,6 +337,12 @@ final class LocalStore {
 
     func pendingOperations() -> [PendingOperationRecord] {
         ((try? context.fetch(FetchDescriptor<PendingOperationRecord>())) ?? []).sorted { $0.createdAt < $1.createdAt }
+    }
+
+    private func client(email: String) -> ClientRecord? {
+        var descriptor = FetchDescriptor<ClientRecord>(predicate: #Predicate { $0.email == email })
+        descriptor.fetchLimit = 1
+        return try? context.fetch(descriptor).first
     }
 
     func enqueue(operation: String, entityID: String) throws {

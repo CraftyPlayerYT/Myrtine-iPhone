@@ -44,6 +44,17 @@ final class OfflineAndSyncTests: XCTestCase {
         XCTAssertEqual(environment.store.pendingOperations().filter { $0.operation == "send_diagnostic" }.count, 1)
     }
 
+    func testStartupPublishesLocalDataBeforeNetworkRefresh() async {
+        let environment = AppEnvironment(inMemory: true, useMocks: true)
+        environment.network.simulation = .offline
+
+        await environment.start()
+
+        XCTAssertTrue(environment.isLocalDataReady)
+        XCTAssertFalse(environment.isSyncing)
+        XCTAssertFalse(environment.store.folders().isEmpty)
+    }
+
     func testMockDiagnosticReturnsReadableMarkdown() async throws {
         let environment = AppEnvironment(inMemory: true, useMocks: true)
         environment.network.simulation = .online

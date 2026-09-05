@@ -6,6 +6,7 @@ import UserNotifications
 @MainActor
 struct MyrtineApp: App {
     @UIApplicationDelegateAdaptor(MyrtineAppDelegate.self) private var appDelegate
+    @Environment(\.scenePhase) private var scenePhase
     @State private var environment: AppEnvironment
 
     init() {
@@ -23,6 +24,9 @@ struct MyrtineApp: App {
                 .modelContainer(environment.container)
                 .preferredColorScheme(.light)
                 .task { await environment.start() }
+                .onChange(of: scenePhase) { _, phase in
+                    if phase != .active { environment.protectLocalData() }
+                }
         }
     }
 }

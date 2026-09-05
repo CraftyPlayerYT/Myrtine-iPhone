@@ -18,19 +18,25 @@ final class AppEnvironment {
 
     var selectedTab: SelectedTab = .home
     var isActivated: Bool
+    var isLocalDataReady = false
     var isSyncing = false
     var lastSync: Date?
     var toast: ToastMessage?
     var presentDiagnosticID: String?
     var presentMessageID: String?
     @ObservationIgnored private var notificationTasks: [Task<Void, Never>] = []
+    @ObservationIgnored private var startupSyncTask: Task<Void, Never>?
     @ObservationIgnored private var notificationsConfigured = false
 
     init(inMemory: Bool = false, useMocks: Bool = false) {
         let schema = Schema(MyrtineSchema.types)
+        var storageWarning: String?
+        if !inMemory {
+            do { try LocalDataSecurity.prepareProtectedStorage() }
+            catch { storageWarning = error.localizedDescription }
+        }
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
         let resolvedContainer: ModelContainer
-        var storageWarning: String?
         do {
             resolvedContainer = try ModelContainer(for: schema, configurations: [configuration])
         } catch {
@@ -43,6 +49,10 @@ final class AppEnvironment {
             }
         }
         container = resolvedContainer
+        if !inMemory {
+            do { try LocalDataSecurity.sealExistingStoreFiles() }
+            catch { storageWarning = storageWarning ?? error.localizedDescription }
+        }
 
         let localStore = LocalStore(context: container.mainContext)
         let apiClient = MyrtineAPIClient(network: network, store: localStore, useMocks: useMocks)
@@ -59,6 +69,7 @@ final class AppEnvironment {
 
     func start() async {
         store.seedSystemFolders()
+        isLocalDataReady = true
         configureNotificationObservers()
         if ProcessInfo.processInfo.arguments.contains("-ui-testing") {
             UserDefaults.standard.removeObject(forKey: "mail.last.folder")
@@ -70,9 +81,22 @@ final class AppEnvironment {
             network.simulation = .offline
         }
         if isActivated {
-            if let pending = PushNotificationBridge.takePending() { await handlePush(pending) }
-            await requestNotificationPermission()
-            await synchronize()
+            let pending = PushNotificationBridge.takePending()
+            startupSyncTask?.cancel()
+            startupSyncTask = Task { [weak self] in
+                guard let self else { return }
+                await Task.yield()
+                await self.requestNotificationPermission()
+                if let pending { await self.handlePush(pending) }
+                else { await self.synchronize() }
+            }
+        }
+    }
+
+    func protectLocalData() {
+        do { try LocalDataSecurity.sealExistingStoreFiles() }
+        catch {
+            store.log(level: "Avertissement", category: "Stockage", message: "Protection du cache local incomplète", detail: error.localizedDescription)
         }
     }
 
