@@ -3,6 +3,7 @@ import SwiftUI
 struct NewDiagnosticView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppEnvironment.self) private var environment
+    private let editingRecord: DiagnosticRecord?
     @State private var draft: DiagnosticDraft
     @State private var newExpense = ""
     @State private var isSending = false
@@ -10,9 +11,10 @@ struct NewDiagnosticView: View {
     @State private var errorMessage: String?
     @State private var keyboardVisible = false
 
-    init() {
+    init(diagnostic: DiagnosticRecord? = nil) {
+        editingRecord = diagnostic
         let isPrefilledUITest = ProcessInfo.processInfo.arguments.contains("-prefill-diagnostic")
-        _draft = State(initialValue: isPrefilledUITest ? .uiTestSample : DiagnosticDraft())
+        _draft = State(initialValue: diagnostic.map(DiagnosticDraft.init) ?? (isPrefilledUITest ? .uiTestSample : DiagnosticDraft()))
     }
 
     var body: some View {
@@ -36,7 +38,7 @@ struct NewDiagnosticView: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .myrtineScreen()
-            .navigationTitle("Nouveau diagnostic")
+            .navigationTitle(editingRecord == nil ? "Nouveau diagnostic" : "Modifier le brouillon")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -63,6 +65,7 @@ struct NewDiagnosticView: View {
     private var projectSection: some View {
         Surface {
             Text("Projet").font(.title3.weight(.bold))
+            FormField("Titre du diagnostic", required: true, text: $draft.title)
             FormField("Objet du projet", required: true, text: $draft.projectObject, axis: .vertical)
             FormField("Porteur du projet", required: true, text: $draft.projectOwner, axis: .vertical)
             FormField("Secteur d'activité", required: true, text: $draft.sector)
@@ -128,7 +131,7 @@ struct NewDiagnosticView: View {
                 .accessibilityIdentifier("diagnostic-submit")
 
                 HStack(spacing: 12) {
-                    Button("Enregistrer le brouillon") { saveDraftAndDismiss() }
+                    Button(editingRecord == nil ? "Enregistrer le brouillon" : "Enregistrer les modifications") { saveDraftAndDismiss() }
                         .buttonStyle(SecondaryButtonStyle())
                         .accessibilityIdentifier("diagnostic-save-draft")
                     Button("Annuler", role: .cancel) { cancelAndDismiss() }
@@ -150,13 +153,20 @@ struct NewDiagnosticView: View {
     }
 
     private func makeRecord() -> DiagnosticRecord {
-        DiagnosticRecord(projectObject: draft.projectObject, projectOwner: draft.projectOwner, sector: draft.sector, location: draft.location, workforce: draft.workforce, revenue: draft.revenue, budget: draft.budget, schedule: draft.schedule, expenses: draft.expenses, additionalInformation: draft.additionalInformation)
+        let record = editingRecord ?? DiagnosticRecord()
+        draft.apply(to: record)
+        return record
     }
 
     private func saveDraftAndDismiss() {
+        guard draft.hasTitle else {
+            errorMessage = "Donnez un titre au brouillon avant de l'enregistrer."
+            return
+        }
         do {
             let record = makeRecord()
-            try environment.store.insert(record)
+            record.state = .draft
+            try environment.store.saveDiagnostic(record)
             environment.toast = ToastMessage(title: "Brouillon enregistré", message: "Il reste disponible hors ligne.", kind: .success)
             dismiss()
         } catch {
@@ -168,7 +178,7 @@ struct NewDiagnosticView: View {
         errorMessage = nil
         isSending = true
         let record = makeRecord()
-        do { try environment.store.insert(record) } catch { errorMessage = error.localizedDescription; isSending = false; return }
+        do { try environment.store.saveDiagnostic(record) } catch { errorMessage = error.localizedDescription; isSending = false; return }
         submissionTask = Task {
             do {
                 try await environment.sync.submit(record)
@@ -227,6 +237,7 @@ private struct FormField: View {
 }
 
 private struct DiagnosticDraft {
+    var title = ""
     var projectObject = ""
     var projectOwner = ""
     var sector = ""
@@ -238,11 +249,70 @@ private struct DiagnosticDraft {
     var expenses: [String] = []
     var additionalInformation = ""
 
+    init(
+        title: String = "",
+        projectObject: String = "",
+        projectOwner: String = "",
+        sector: String = "",
+        location: String = "",
+        workforce: String = "",
+        revenue: String = "",
+        budget: String = "",
+        schedule: String = "",
+        expenses: [String] = [],
+        additionalInformation: String = ""
+    ) {
+        self.title = title
+        self.projectObject = projectObject
+        self.projectOwner = projectOwner
+        self.sector = sector
+        self.location = location
+        self.workforce = workforce
+        self.revenue = revenue
+        self.budget = budget
+        self.schedule = schedule
+        self.expenses = expenses
+        self.additionalInformation = additionalInformation
+    }
+
+    init(_ record: DiagnosticRecord) {
+        title = record.title
+        projectObject = record.projectObject
+        projectOwner = record.projectOwner
+        sector = record.sector
+        location = record.location
+        workforce = record.workforce
+        revenue = record.revenue
+        budget = record.budget
+        schedule = record.schedule
+        expenses = record.expenses
+        additionalInformation = record.additionalInformation
+    }
+
+    var hasTitle: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var isComplete: Bool {
-        [projectObject, projectOwner, sector, location, workforce, budget, schedule].allSatisfy { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } && !expenses.isEmpty
+        hasTitle && [projectObject, projectOwner, sector, location, workforce, budget, schedule].allSatisfy { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } && !expenses.isEmpty
+    }
+
+    func apply(to record: DiagnosticRecord) {
+        record.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        record.projectObject = projectObject
+        record.projectOwner = projectOwner
+        record.sector = sector
+        record.location = location
+        record.workforce = workforce
+        record.revenue = revenue
+        record.budget = budget
+        record.schedule = schedule
+        record.expenses = expenses
+        record.additionalInformation = additionalInformation
     }
 
     static let uiTestSample = DiagnosticDraft(
+        title: "Atelier Test - Énergie 2027",
         projectObject: "Réduction énergétique de la ligne de production",
         projectOwner: "Atelier Test iOS",
         sector: "Industrie manufacturière",

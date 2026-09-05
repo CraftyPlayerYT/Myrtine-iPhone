@@ -71,8 +71,28 @@ final class OfflineAndSyncTests: XCTestCase {
     func testDiagnosticIsCompleteWithoutContactInformation() {
         let diagnostic = completeDiagnostic()
         XCTAssertTrue(diagnostic.isComplete)
+        XCTAssertEqual(diagnostic.displayTitle, "Atelier Test - Énergie 2027")
         XCTAssertTrue(diagnostic.email.isEmpty)
         XCTAssertEqual(diagnostic.additionalInformation, "Le bâtiment est déjà raccordé au réseau de chaleur.")
+    }
+
+    func testDraftUpdateKeepsTheSameRecord() throws {
+        let environment = AppEnvironment(inMemory: true, useMocks: true)
+        let diagnostic = completeDiagnostic()
+        diagnostic.state = .draft
+        try environment.store.saveDiagnostic(diagnostic)
+
+        diagnostic.title = "Atelier Test - Titre modifié"
+        try environment.store.saveDiagnostic(diagnostic)
+
+        XCTAssertEqual(environment.store.diagnostics().count, 1)
+        XCTAssertEqual(environment.store.diagnostic(id: diagnostic.id)?.title, "Atelier Test - Titre modifié")
+    }
+
+    func testDiagnosticWithoutTitleIsIncomplete() {
+        let diagnostic = completeDiagnostic()
+        diagnostic.title = ""
+        XCTAssertFalse(diagnostic.isComplete)
     }
 
     func testDeletedFolderKeepsAndRestoresItsMessages() throws {
@@ -100,6 +120,6 @@ final class OfflineAndSyncTests: XCTestCase {
     }
 
     private func completeDiagnostic() -> DiagnosticRecord {
-        DiagnosticRecord(projectObject: "Réduire la consommation énergétique", projectOwner: "Atelier Test", sector: "Industrie", location: "Lyon", workforce: "12 salariés", revenue: "900 000 €", budget: "150 000 €", schedule: "2027", expenses: ["Machines"], additionalInformation: "Le bâtiment est déjà raccordé au réseau de chaleur.")
+        DiagnosticRecord(title: "Atelier Test - Énergie 2027", projectObject: "Réduire la consommation énergétique", projectOwner: "Atelier Test", sector: "Industrie", location: "Lyon", workforce: "12 salariés", revenue: "900 000 €", budget: "150 000 €", schedule: "2027", expenses: ["Machines"], additionalInformation: "Le bâtiment est déjà raccordé au réseau de chaleur.")
     }
 }

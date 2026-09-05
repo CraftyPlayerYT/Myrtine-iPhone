@@ -26,9 +26,13 @@ final class LocalStore {
     }
 
     func insert(_ diagnostic: DiagnosticRecord) throws {
+        try saveDiagnostic(diagnostic)
+    }
+
+    func saveDiagnostic(_ diagnostic: DiagnosticRecord) throws {
         diagnostic.updatedAt = .now
         diagnostic.syncRequired = true
-        context.insert(diagnostic)
+        if self.diagnostic(id: diagnostic.id) == nil { context.insert(diagnostic) }
         try upsertClient(from: diagnostic)
         try enqueue(operation: "upsert_diagnostic", entityID: diagnostic.id)
     }
@@ -40,6 +44,7 @@ final class LocalStore {
             existing.updatedAt = remote.updatedAt
             existing.deletedAt = remote.deletedAt
             existing.stateRaw = remote.state
+            if !remote.title.isEmpty { existing.title = remote.title }
             existing.projectObject = remote.projectObject
             existing.projectOwner = remote.projectOwner
             existing.sector = remote.sector
@@ -64,6 +69,7 @@ final class LocalStore {
                 createdAt: remote.createdAt,
                 updatedAt: remote.updatedAt,
                 state: DiagnosticState(rawValue: remote.state) ?? .received,
+                title: remote.title.isEmpty ? remote.projectObject : remote.title,
                 projectObject: remote.projectObject,
                 projectOwner: remote.projectOwner,
                 sector: remote.sector,
@@ -377,6 +383,7 @@ final class LocalStore {
     func seedPreviewData() {
         guard diagnostics(includeDeleted: true).isEmpty else { return }
         let diagnostic = DiagnosticRecord(
+            title: "Atelier des Baous - Transition énergétique",
             projectObject: "Modernisation énergétique de la ligne de production",
             projectOwner: "Atelier des Baous",
             sector: "Agroalimentaire",
@@ -430,6 +437,7 @@ struct DiagnosticSnapshot: Sendable {
     let updatedAt: Date
     let deletedAt: Date?
     let state: String
+    let title: String
     let projectObject: String
     let projectOwner: String
     let sector: String

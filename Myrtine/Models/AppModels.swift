@@ -18,6 +18,7 @@ final class DiagnosticRecord {
     var updatedAt: Date
     var deletedAt: Date?
     var stateRaw: String
+    var title: String = ""
     var projectObject: String
     var projectOwner: String
     var sector: String
@@ -45,6 +46,7 @@ final class DiagnosticRecord {
         createdAt: Date = .now,
         updatedAt: Date = .now,
         state: DiagnosticState = .draft,
+        title: String = "",
         projectObject: String = "",
         projectOwner: String = "",
         sector: String = "",
@@ -65,6 +67,7 @@ final class DiagnosticRecord {
         self.updatedAt = updatedAt
         self.deletedAt = nil
         self.stateRaw = state.rawValue
+        self.title = title
         self.projectObject = projectObject
         self.projectOwner = projectOwner
         self.sector = sector
@@ -97,7 +100,17 @@ final class DiagnosticRecord {
         [firstName, lastName].filter { !$0.isEmpty }.joined(separator: " ")
     }
 
+    var displayTitle: String {
+        let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleaned.isEmpty ? projectObject : cleaned
+    }
+
+    var displayInitials: String {
+        displayTitle.split(separator: " ").prefix(2).compactMap(\.first).map(String.init).joined()
+    }
+
     var isComplete: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !projectObject.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !projectOwner.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !sector.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
@@ -106,6 +119,20 @@ final class DiagnosticRecord {
         !budget.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !schedule.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !expenses.isEmpty
+    }
+}
+
+extension DiagnosticState {
+    var systemImage: String {
+        switch self {
+        case .draft: "square.and.pencil"
+        case .queued: "arrow.triangle.2.circlepath"
+        case .sending: "paperplane"
+        case .received: "checkmark.circle.fill"
+        case .sent: "paperplane.circle.fill"
+        case .failed: "exclamationmark.triangle.fill"
+        case .deleted: "trash.fill"
+        }
     }
 }
 

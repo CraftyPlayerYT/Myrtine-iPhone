@@ -93,6 +93,7 @@ private struct RemoteDiagnostic: Codable {
     let updatedAt: Date
     let deletedAt: Date?
     let status: String
+    let title: String?
     let projectObject: String
     let projectOwner: String
     let sector: String
@@ -119,6 +120,7 @@ private struct RemoteDiagnostic: Codable {
         updatedAt = value.updatedAt
         deletedAt = value.deletedAt
         status = value.stateRaw
+        title = value.title
         projectObject = value.projectObject
         projectOwner = value.projectOwner
         sector = value.sector
@@ -141,11 +143,11 @@ private struct RemoteDiagnostic: Codable {
     }
 
     var snapshot: DiagnosticSnapshot {
-        DiagnosticSnapshot(id: id, createdAt: createdAt, updatedAt: updatedAt, deletedAt: deletedAt, state: status, projectObject: projectObject, projectOwner: projectOwner, sector: sector, location: location, workforce: workforce, revenue: revenue, budget: budget, schedule: schedule, expenses: (try? JSONDecoder().decode([String].self, from: Data(expensesJSON.utf8))) ?? [], additionalInformation: additionalInformation, lastName: lastName, firstName: firstName, email: email, phone: phone, resultMarkdown: resultMarkdown ?? "", lastError: lastError ?? "", isDeleted: isDeleted ?? false, isRead: isRead)
+        DiagnosticSnapshot(id: id, createdAt: createdAt, updatedAt: updatedAt, deletedAt: deletedAt, state: status, title: title ?? projectObject, projectObject: projectObject, projectOwner: projectOwner, sector: sector, location: location, workforce: workforce, revenue: revenue, budget: budget, schedule: schedule, expenses: (try? JSONDecoder().decode([String].self, from: Data(expensesJSON.utf8))) ?? [], additionalInformation: additionalInformation, lastName: lastName, firstName: firstName, email: email, phone: phone, resultMarkdown: resultMarkdown ?? "", lastError: lastError ?? "", isDeleted: isDeleted ?? false, isRead: isRead)
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, status, sector = "secteur", location = "localisation", workforce = "effectif", schedule = "calendrier", email
+        case id, status, title = "titre", sector = "secteur", location = "localisation", workforce = "effectif", schedule = "calendrier", email
         case createdAt = "created_at", updatedAt = "updated_at", deletedAt = "deleted_at"
         case projectObject = "objet_projet", projectOwner = "porteur_projet", revenue = "chiffre_affaires", budget = "budget_previsionnel"
         case expensesJSON = "depenses_json", additionalInformation = "informations_supplementaires", lastName = "nom", firstName = "prenom", phone = "telephone"

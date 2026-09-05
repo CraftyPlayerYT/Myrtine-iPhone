@@ -128,26 +128,22 @@ struct DiagnosticCompactRow: View {
                 .frame(width: 44, height: 44)
                 .overlay { Text(compactInitials).font(.subheadline.weight(.bold)).foregroundStyle(MyrtineTheme.accent) }
             VStack(alignment: .leading, spacing: 3) {
-                Text(compactTitle).font(.body.weight(diagnostic.isRead ? .regular : .semibold)).lineLimit(1)
+                Text(diagnostic.displayTitle).font(.body.weight(diagnostic.isRead ? .regular : .semibold)).lineLimit(1)
                 Text(diagnostic.projectObject).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                 Text([diagnostic.sector, diagnostic.budget].filter { !$0.isEmpty }.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 4)
+            Image(systemName: diagnostic.state.systemImage)
+                .font(.subheadline)
+                .foregroundStyle(diagnostic.state == .failed ? .red : MyrtineTheme.accent)
+                .accessibilityLabel(diagnostic.state.rawValue)
             Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
         }
         .contentShape(Rectangle())
         .frame(minHeight: 58)
     }
 
-    private var compactTitle: String {
-        if !diagnostic.fullName.isEmpty { return diagnostic.fullName }
-        if !diagnostic.email.isEmpty { return diagnostic.email }
-        return diagnostic.projectOwner.isEmpty ? diagnostic.projectObject : diagnostic.projectOwner
-    }
-
     private var compactInitials: String {
-        let contactInitials = String(diagnostic.firstName.prefix(1)) + String(diagnostic.lastName.prefix(1))
-        if !contactInitials.isEmpty { return contactInitials }
-        return diagnostic.projectOwner.split(separator: " ").prefix(2).compactMap(\.first).map(String.init).joined()
+        diagnostic.displayInitials
     }
 }

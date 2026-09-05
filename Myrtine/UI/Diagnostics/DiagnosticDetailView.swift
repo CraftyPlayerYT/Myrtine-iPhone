@@ -27,7 +27,7 @@ struct DiagnosticDetailView: View {
                 .padding(16)
             }
             .myrtineScreen()
-            .navigationTitle("Diagnostic")
+            .navigationTitle(diagnostic.displayTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Fermer") { dismiss() }.frame(minHeight: 44) }
@@ -67,6 +67,7 @@ struct DiagnosticDetailView: View {
     private var project: some View {
         Surface {
             Text("Informations transmises").font(.title3.weight(.bold))
+            DetailLine(label: "Titre", value: diagnostic.displayTitle)
             DetailLine(label: "Projet", value: diagnostic.projectObject)
             DetailLine(label: "Porteur", value: diagnostic.projectOwner)
             DetailLine(label: "Secteur", value: diagnostic.sector)

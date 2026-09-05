@@ -14,7 +14,7 @@ struct DiagnosticsHomeView: View {
     @State private var scope: Scope = .unread
     @State private var search = ""
     @State private var selectedDiagnostic: DiagnosticRecord?
-    @State private var showNewDiagnostic = false
+    @State private var editorRoute: DiagnosticEditorRoute?
 
     private var filtered: [DiagnosticRecord] {
         allDiagnostics.filter { diagnostic in
@@ -24,7 +24,7 @@ struct DiagnosticsHomeView: View {
             case .trash: diagnostic.isTrashed
             }
             let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
-            return inScope && (query.isEmpty || [diagnostic.fullName, diagnostic.email, diagnostic.projectOwner, diagnostic.projectObject, diagnostic.sector, diagnostic.location, diagnostic.additionalInformation].contains { $0.localizedCaseInsensitiveContains(query) })
+            return inScope && (query.isEmpty || [diagnostic.displayTitle, diagnostic.projectOwner, diagnostic.projectObject, diagnostic.sector, diagnostic.location, diagnostic.additionalInformation].contains { $0.localizedCaseInsensitiveContains(query) })
         }
     }
 
@@ -91,13 +91,15 @@ struct DiagnosticsHomeView: View {
                     if environment.isSyncing { ProgressView().accessibilityLabel("Synchronisation") }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showNewDiagnostic = true } label: { Image(systemName: "plus") }
+                    Button { editorRoute = DiagnosticEditorRoute(diagnostic: nil) } label: { Image(systemName: "plus") }
                         .accessibilityLabel("Nouveau diagnostic")
                         .frame(minWidth: 44, minHeight: 44)
                         .accessibilityIdentifier("diagnostics-new")
                 }
             }
-            .fullScreenCover(isPresented: $showNewDiagnostic) { NewDiagnosticView() }
+            .fullScreenCover(item: $editorRoute) { route in
+                NewDiagnosticView(diagnostic: route.diagnostic)
+            }
             .fullScreenCover(item: $selectedDiagnostic) { diagnostic in
                 DiagnosticDetailView(diagnostic: diagnostic)
             }
@@ -110,7 +112,11 @@ struct DiagnosticsHomeView: View {
     }
 
     private func open(_ diagnostic: DiagnosticRecord) {
-        selectedDiagnostic = diagnostic
+        if diagnostic.state == .draft {
+            editorRoute = DiagnosticEditorRoute(diagnostic: diagnostic)
+        } else {
+            selectedDiagnostic = diagnostic
+        }
     }
 
     @ViewBuilder private func actions(for diagnostic: DiagnosticRecord) -> some View {
@@ -158,13 +164,12 @@ private struct DiagnosticListRow: View {
                         .font(.body.weight(diagnostic.isRead ? .regular : .semibold))
                         .lineLimit(1)
                     Spacer()
-                    Text(diagnostic.updatedAt, format: .dateTime.day().month())
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Image(systemName: diagnostic.state.systemImage)
+                        .foregroundStyle(statusColor)
+                        .accessibilityLabel(diagnostic.state.rawValue)
+                    Text(diagnostic.updatedAt, format: .dateTime.day().month()).font(.caption).foregroundStyle(.secondary)
                 }
                 Text(diagnostic.projectObject).font(.subheadline).lineLimit(1)
-                Text([diagnostic.email, diagnostic.phone].filter { !$0.isEmpty }.joined(separator: " · "))
-                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 HStack {
                     Text(diagnostic.sector).lineLimit(1)
                     if !diagnostic.budget.isEmpty { Text("•"); Text(diagnostic.budget).lineLimit(1) }
@@ -177,19 +182,19 @@ private struct DiagnosticListRow: View {
         .frame(minHeight: 86)
         .contentShape(Rectangle())
     }
+
+    private var statusColor: Color {
+        switch diagnostic.state {
+        case .received, .sent: MyrtineTheme.leaf
+        case .failed: .red
+        case .queued, .sending: .orange
+        case .deleted: .secondary
+        case .draft: MyrtineTheme.accent
+        }
+    }
 }
 
-private extension DiagnosticRecord {
-    var displayTitle: String {
-        if !fullName.isEmpty { return fullName }
-        if !email.isEmpty { return email }
-        if !projectOwner.isEmpty { return projectOwner }
-        return projectObject
-    }
-
-    var displayInitials: String {
-        let contactInitials = String(firstName.prefix(1)) + String(lastName.prefix(1))
-        if !contactInitials.isEmpty { return contactInitials }
-        return projectOwner.split(separator: " ").prefix(2).compactMap(\.first).map(String.init).joined()
-    }
+private struct DiagnosticEditorRoute: Identifiable {
+    let id = UUID()
+    let diagnostic: DiagnosticRecord?
 }

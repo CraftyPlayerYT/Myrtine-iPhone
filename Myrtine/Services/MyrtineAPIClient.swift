@@ -170,6 +170,7 @@ struct MailAttachmentPayload: Codable, Identifiable, Sendable {
 private struct DiagnosticPayload: Encodable {
     let action: String? = nil
     let diagnosticID: String
+    let title: String
     let projectObject: String
     let projectOwner: String
     let sector: String
@@ -187,6 +188,7 @@ private struct DiagnosticPayload: Encodable {
 
     init(_ value: DiagnosticRecord) {
         diagnosticID = value.id
+        title = value.title
         projectObject = value.projectObject
         projectOwner = value.projectOwner
         sector = value.sector
@@ -206,6 +208,7 @@ private struct DiagnosticPayload: Encodable {
     enum CodingKeys: String, CodingKey {
         case action
         case diagnosticID = "diagnostic_id"
+        case title = "titre"
         case projectObject = "objet_projet"
         case projectOwner = "porteur_projet"
         case sector = "secteur"

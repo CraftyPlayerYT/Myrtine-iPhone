@@ -7,7 +7,7 @@ final class MyrtineUITests: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
         app.launchArguments = ["-ui-testing", "-use-mocks", "-sample-data"]
-        if name.contains("testCompleteDiagnosticFormAndAutomaticResultOpening") {
+        if name.contains("testCompleteDiagnosticFormAndAutomaticResultOpening") || name.contains("testDiagnosticDraftCanBeEditedAndOverwritten") {
             app.launchArguments.append("-prefill-diagnostic")
         }
         if name.contains("testFirstLaunchActivation") {
@@ -103,6 +103,7 @@ final class MyrtineUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Nouveau diagnostic"].waitForExistence(timeout: 5))
         let project = app.textFields["field-Objet du projet"]
         XCTAssertEqual(project.value as? String, "Réduction énergétique de la ligne de production")
+        XCTAssertEqual(app.textFields["field-Titre du diagnostic"].value as? String, "Atelier Test - Énergie 2027")
         capture("30-nouveau-diagnostic-prerempli")
 
         let form = app.scrollViews.firstMatch
@@ -134,6 +135,26 @@ final class MyrtineUITests: XCTestCase {
         capture("45-resultat-markdown-rendu")
         table.swipeLeft()
         capture("46-resultat-tableau-defile")
+    }
+
+    func testDiagnosticDraftCanBeEditedAndOverwritten() throws {
+        app.tabBars.buttons["Diagnostics"].tap()
+        app.buttons["diagnostics-new"].tap()
+        XCTAssertTrue(app.navigationBars["Nouveau diagnostic"].waitForExistence(timeout: 5))
+        app.buttons["diagnostic-save-draft"].tap()
+
+        let savedTitle = app.staticTexts["Atelier Test - Énergie 2027"]
+        XCTAssertTrue(savedTitle.waitForExistence(timeout: 5))
+        savedTitle.tap()
+        XCTAssertTrue(app.navigationBars["Modifier le brouillon"].waitForExistence(timeout: 5))
+
+        let title = app.textFields["field-Titre du diagnostic"]
+        title.tap()
+        title.typeText(" - modifié")
+        app.buttons["diagnostic-save-draft"].tap()
+
+        XCTAssertTrue(app.staticTexts["Atelier Test - Énergie 2027 - modifié"].waitForExistence(timeout: 5))
+        capture("47-brouillon-diagnostic-modifie")
     }
 
     func testAirplaneModeKeepsLocalAppUsable() throws {
