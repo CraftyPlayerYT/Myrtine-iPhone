@@ -31,10 +31,10 @@ final class MyrtineUITests: XCTestCase {
         app.tabBars.buttons["Diagnostics"].tap()
         capture("02-diagnostics-nouveaux")
 
-        let sampleClient = app.staticTexts["Élodie Martin"]
-        XCTAssertTrue(sampleClient.waitForExistence(timeout: 12))
-        sampleClient.tap()
-        XCTAssertTrue(app.navigationBars["Diagnostic"].waitForExistence(timeout: 5))
+        let sampleDiagnostic = app.staticTexts["Atelier des Baous - Transition énergétique"]
+        XCTAssertTrue(sampleDiagnostic.waitForExistence(timeout: 12))
+        sampleDiagnostic.tap()
+        XCTAssertTrue(app.navigationBars["Atelier des Baous - Transition énergétique"].waitForExistence(timeout: 5))
         capture("03-diagnostic-detail")
 
         app.buttons["Fermer"].tap()
@@ -120,7 +120,7 @@ final class MyrtineUITests: XCTestCase {
         let submit = app.buttons["diagnostic-submit"]
         XCTAssertTrue(submit.isEnabled)
         submit.tap()
-        XCTAssertTrue(app.navigationBars["Diagnostic"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.navigationBars["Atelier Test - Énergie 2027"].waitForExistence(timeout: 10))
         capture("44-resultat-ouvert-automatiquement")
 
         let detail = app.scrollViews.firstMatch
@@ -151,6 +151,8 @@ final class MyrtineUITests: XCTestCase {
         let title = app.textFields["field-Titre du diagnostic"]
         title.tap()
         title.typeText(" - modifié")
+        app.buttons["diagnostic-keyboard-done"].tap()
+        XCTAssertTrue(app.buttons["diagnostic-save-draft"].waitForExistence(timeout: 5))
         app.buttons["diagnostic-save-draft"].tap()
 
         XCTAssertTrue(app.staticTexts["Atelier Test - Énergie 2027 - modifié"].waitForExistence(timeout: 5))

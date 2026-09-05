@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct NewDiagnosticView: View {
     @Environment(\.dismiss) private var dismiss
@@ -45,6 +46,11 @@ struct NewDiagnosticView: View {
                     Button("Fermer") { cancelAndDismiss() }
                         .frame(minHeight: 44)
                         .accessibilityIdentifier("diagnostic-close")
+                }
+                ToolbarItem(placement: .keyboard) {
+                    Button("Terminer") { dismissKeyboard() }
+                        .fontWeight(.semibold)
+                        .accessibilityIdentifier("diagnostic-keyboard-done")
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -202,6 +208,15 @@ struct NewDiagnosticView: View {
     private func cancelAndDismiss() {
         submissionTask?.cancel()
         dismiss()
+    }
+
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil,
+            from: nil,
+            for: nil
+        )
     }
 }
 
