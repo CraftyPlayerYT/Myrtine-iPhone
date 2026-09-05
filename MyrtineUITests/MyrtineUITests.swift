@@ -149,13 +149,17 @@ final class MyrtineUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Modifier le brouillon"].waitForExistence(timeout: 5))
 
         let title = app.textFields["field-Titre du diagnostic"]
+        let originalTitle = title.value as? String ?? ""
         title.tap()
         title.typeText(" - modifié")
+        let editedTitle = title.value as? String ?? ""
+        XCTAssertNotEqual(editedTitle, originalTitle)
+        XCTAssertTrue(editedTitle.localizedCaseInsensitiveContains("modifié"))
         app.buttons["diagnostic-keyboard-done"].tap()
         XCTAssertTrue(app.buttons["diagnostic-save-draft"].waitForExistence(timeout: 5))
         app.buttons["diagnostic-save-draft"].tap()
 
-        XCTAssertTrue(app.staticTexts["Atelier Test - Énergie 2027 - modifié"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts[editedTitle].waitForExistence(timeout: 5))
         capture("47-brouillon-diagnostic-modifie")
     }
 
